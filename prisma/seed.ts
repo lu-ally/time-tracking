@@ -20,9 +20,11 @@ async function main() {
     }
   }
 
-  const adminEmail = process.env.SEED_ADMIN_EMAIL
+  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "engineering@allywell.de"
   const adminPassword = process.env.SEED_ADMIN_PASSWORD
-  if (adminEmail && adminPassword) {
+  if (!adminPassword) {
+    console.warn("SEED_ADMIN_PASSWORD is not set. Skipping admin user seed.")
+  } else {
     const existing = await prisma.user.findUnique({ where: { email: adminEmail } })
     if (!existing) {
       const passwordHash = await hashPassword(adminPassword)

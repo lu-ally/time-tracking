@@ -1,17 +1,17 @@
 import type { Metadata } from "next"
 import "../styles/globals.css"
-import { Fraunces, Space_Grotesk } from "next/font/google"
+import { DM_Serif_Text, Urbanist } from "next/font/google"
 
-const display = Fraunces({
+const display = DM_Serif_Text({
   subsets: ["latin"],
   variable: "--font-display",
-  weight: ["400", "600", "700"]
+  weight: ["400"]
 })
 
-const body = Space_Grotesk({
+const body = Urbanist({
   subsets: ["latin"],
   variable: "--font-body",
-  weight: ["400", "500", "600", "700"]
+  weight: ["400"]
 })
 
 export const metadata: Metadata = {

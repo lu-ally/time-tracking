@@ -23,14 +23,28 @@ export default async function LoginPage({
         <h1 className="font-display text-3xl mb-2">Willkommen zurück</h1>
         <p className="text-[#6b5e51] mb-6">Bitte melde dich an, um deine Zeiten zu sehen.</p>
         {error ? <div className="mb-4 text-sm text-ember">{error}</div> : null}
-        <form className="space-y-4" method="post" action="/api/auth/login">
+        <form className="space-y-4" method="post" action="/api/auth/login" autoComplete="on">
           <label className="flex flex-col gap-2">
             <span className="label">E-Mail</span>
-            <input className="input" type="email" name="email" required />
+            <input
+              className="input"
+              type="email"
+              id="login-email"
+              name="email"
+              autoComplete="username"
+              required
+            />
           </label>
           <label className="flex flex-col gap-2">
             <span className="label">Passwort</span>
-            <input className="input" type="password" name="password" required />
+            <input
+              className="input"
+              type="password"
+              id="login-password"
+              name="password"
+              autoComplete="current-password"
+              required
+            />
           </label>
           <button className="btn btn-primary w-full" type="submit">
             Einloggen

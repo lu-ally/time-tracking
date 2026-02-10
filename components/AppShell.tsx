@@ -21,8 +21,8 @@ export async function AppShell({
       <header className="border-b border-sand bg-white/70 backdrop-blur">
         <div className="container flex flex-wrap items-center justify-between gap-4 py-5">
           <Link href="/time" className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-accent text-white flex items-center justify-center font-bold">
-              AT
+            <div className="h-10 w-10 rounded-2xl bg-accent text-white flex items-center justify-center">
+              <img src="/icon-white.svg" alt="" className="h-5 w-5" />
             </div>
             <div>
               <div className="font-display text-xl">AllyTimeTracking</div>

@@ -3,7 +3,32 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
+  --bg: radial-gradient(circle at top left, #ffffff 0%, #f7f4ef 50%, #f1ebe0 100%);
+  --text: #0b0c0f;
+  --card: #ffffff;
+  --border: #e6e1d8;
+  --input: #fcfbf8;
+  --muted: #6b5e51;
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --kbd-bg: #f7f4ef;
+  --kbd-border: #e6e1d8;
+  --ghost-border: #e6e1d8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: radial-gradient(circle at top left, #1a1b1f 0%, #141518 50%, #0f1013 100%);
+    --text: #f5f4f0;
+    --card: #17181c;
+    --border: #2a2c33;
+    --input: #1f2126;
+    --muted: #b7ad9f;
+    --shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
+    --kbd-bg: #1f2126;
+    --kbd-border: #2a2c33;
+    --ghost-border: #2a2c33;
+  }
 }
 
 * {
@@ -12,8 +37,8 @@
 
 body {
   font-family: var(--font-body);
-  background: radial-gradient(circle at top left, #ffffff 0%, #f7f4ef 50%, #f1ebe0 100%);
-  color: #0b0c0f;
+  background: var(--bg);
+  color: var(--text);
   min-height: 100vh;
 }
 
@@ -32,10 +57,10 @@ input, button, textarea, select {
 }
 
 .card {
-  background: #ffffff;
-  border: 1px solid #e6e1d8;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 18px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .btn {
@@ -61,31 +86,31 @@ input, button, textarea, select {
 
 .btn-ghost {
   background: transparent;
-  color: #0b0c0f;
-  border: 1px solid #e6e1d8;
+  color: var(--text);
+  border: 1px solid var(--ghost-border);
 }
 
 .input {
   width: 100%;
-  border: 1px solid #e6e1d8;
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
-  background: #fcfbf8;
+  background: var(--input);
 }
 
 .label {
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #6b5e51;
+  color: var(--muted);
   font-weight: 600;
 }
 
 .kbd {
   font-family: ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  border: 1px solid #e6e1d8;
+  border: 1px solid var(--kbd-border);
   padding: 2px 6px;
   border-radius: 6px;
-  background: #f7f4ef;
+  background: var(--kbd-bg);
   font-size: 12px;
 }
