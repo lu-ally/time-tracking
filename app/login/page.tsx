@@ -39,10 +39,8 @@ export default async function LoginPage({
             Einloggen
           </button>
         </form>
-        <div className="flex justify-between items-center mt-6 text-sm">
-          <Link href="/reset" className="underline">
-            Passwort vergessen?
-          </Link>
+        <div className="mt-6 text-sm text-[#6b5e51]">
+          Passwort-Reset ist deaktiviert. Bitte Admin kontaktieren.
         </div>
       </div>
     </div>

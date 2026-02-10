@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "../../../../lib/auth"
 import { prisma } from "../../../../lib/db"
 import { hashPassword } from "../../../../lib/password"
+import { passwordSchema } from "../../../../lib/validation"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -37,9 +38,26 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const userId = String(body.userId ?? "")
     const role = String(body.role ?? "")
+    const newPassword = body.newPassword ? String(body.newPassword) : null
 
-    if (!userId || (role !== "admin" && role !== "user")) {
+    if (!userId) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
+    }
+
+    if (newPassword) {
+      if (!passwordSchema.safeParse(newPassword).success) {
+        return NextResponse.json({ error: "Password does not meet policy" }, { status: 400 })
+      }
+      const passwordHash = await hashPassword(newPassword)
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash }
+      })
+      return NextResponse.json({ user: updated })
+    }
+
+    if (role !== "admin" && role !== "user") {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 })
     }
 
     if (admin.id === userId && role !== "admin") {
