@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireUser } from "../../../lib/auth"
+import { apiError, requireUser } from "../../../lib/auth"
 import { getHolidaysForYear } from "../../../lib/holidaysRepo"
 
 export async function GET(request: NextRequest) {
@@ -14,6 +14,6 @@ export async function GET(request: NextRequest) {
     const holidays = await getHolidaysForYear(year, user.holidayState)
     return NextResponse.json({ holidays })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }

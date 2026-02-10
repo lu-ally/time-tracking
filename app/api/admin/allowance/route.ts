@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAdmin } from "../../../../lib/auth"
+import { apiError, requireAdmin } from "../../../../lib/auth"
 import { prisma } from "../../../../lib/db"
 
 export async function POST(request: NextRequest) {
@@ -33,6 +33,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ allowance })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }

@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAdmin } from "../../../../lib/auth"
+import { apiError, requireAdmin } from "../../../../lib/auth"
 import { prisma } from "../../../../lib/db"
 import { hashPassword } from "../../../../lib/password"
 import { passwordSchema } from "../../../../lib/validation"
+
+const userSelect = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  targetMinutesMon: true,
+  targetMinutesTue: true,
+  targetMinutesWed: true,
+  targetMinutesThu: true,
+  targetMinutesFri: true,
+  targetMinutesSat: true,
+  targetMinutesSun: true
+} as const
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -12,23 +26,11 @@ export async function GET() {
     await requireAdmin()
     const users = await prisma.user.findMany({
       orderBy: { name: "asc" },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        targetMinutesMon: true,
-        targetMinutesTue: true,
-        targetMinutesWed: true,
-        targetMinutesThu: true,
-        targetMinutesFri: true,
-        targetMinutesSat: true,
-        targetMinutesSun: true
-      }
+      select: userSelect
     })
     return NextResponse.json({ users })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }
 
@@ -51,7 +53,8 @@ export async function PATCH(request: NextRequest) {
       const passwordHash = await hashPassword(newPassword)
       const updated = await prisma.user.update({
         where: { id: userId },
-        data: { passwordHash }
+        data: { passwordHash },
+        select: userSelect
       })
       return NextResponse.json({ user: updated })
     }
@@ -78,12 +81,13 @@ export async function PATCH(request: NextRequest) {
 
     const updated = await prisma.user.update({
       where: { id: userId },
-      data: { role: role as "admin" | "user" }
+      data: { role: role as "admin" | "user" },
+      select: userSelect
     })
 
     return NextResponse.json({ user: updated })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }
 
@@ -100,6 +104,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
+    if (!passwordSchema.safeParse(password).success) {
+      return NextResponse.json({ error: "Password does not meet policy" }, { status: 400 })
+    }
+
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
       return NextResponse.json({ error: "User exists" }, { status: 400 })
@@ -107,12 +115,13 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await hashPassword(password)
     const user = await prisma.user.create({
-      data: { name, email, passwordHash, role: role as "admin" | "user" }
+      data: { name, email, passwordHash, role: role as "admin" | "user" },
+      select: userSelect
     })
 
     return NextResponse.json({ user })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }
 
@@ -143,6 +152,6 @@ export async function DELETE(request: NextRequest) {
     await prisma.user.delete({ where: { id: userId } })
     return NextResponse.json({ ok: true })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }

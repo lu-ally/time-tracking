@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireUser } from "../../../lib/auth"
+import { apiError, requireUser } from "../../../lib/auth"
 import { prisma } from "../../../lib/db"
 import { leaveEntrySchema } from "../../../lib/validation"
 
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ entries })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }
 
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ entry })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }
 
@@ -108,7 +108,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ entry })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }
 
@@ -129,6 +129,6 @@ export async function DELETE(request: NextRequest) {
     await prisma.leaveEntry.delete({ where: { id } })
     return NextResponse.json({ ok: true })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }

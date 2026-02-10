@@ -1,4 +1,5 @@
 import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
 import { prisma } from "./db"
 import crypto from "crypto"
 import { addDays } from "date-fns"
@@ -78,4 +79,17 @@ export async function requireAdmin() {
     throw new Error("FORBIDDEN")
   }
   return user
+}
+
+export function apiError(error: unknown): Response {
+  if (error instanceof Error) {
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (error.message === "FORBIDDEN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+  }
+  console.error("[API]", error)
+  return NextResponse.json({ error: "Internal server error" }, { status: 500 })
 }

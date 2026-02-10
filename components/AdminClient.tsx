@@ -7,7 +7,6 @@ type User = {
   email: string
   name: string
   role: "user" | "admin"
-  targetMinutesPerDay: number
 }
 
 type AuditLog = {
@@ -121,7 +120,7 @@ export function AdminClient() {
     await load()
   }
 
-  const createUser = async (event: React.FormEvent<HTMLFormElement>) => {
+  const createUser = async (event: React.FormEvent<HTMLFormElement>): Promise<boolean> => {
     event.preventDefault()
     setError(null)
     const response = await fetch("/api/admin/users", {
@@ -132,10 +131,11 @@ export function AdminClient() {
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
       setError(data.error ?? "User konnte nicht erstellt werden")
-      return
+      return false
     }
     setCreateForm({ name: "", email: "", password: "", role: "user" })
     await load()
+    return true
   }
 
   const deleteUser = async (userId: string) => {
@@ -178,11 +178,21 @@ export function AdminClient() {
     const special = "!@#$%*?_-"
     const all = upper + lower + numbers + special
 
-    const pick = (chars: string) => chars[Math.floor(Math.random() * chars.length)]
+    const randomIndex = (max: number) => {
+      const array = new Uint32Array(1)
+      crypto.getRandomValues(array)
+      return array[0] % max
+    }
+    const pick = (chars: string) => chars[randomIndex(chars.length)]
     const length = 12
     const required = [pick(upper), pick(lower), pick(numbers), pick(special)]
     const rest = Array.from({ length: length - required.length }, () => pick(all))
-    const password = [...required, ...rest].sort(() => Math.random() - 0.5).join("")
+    const shuffled = [...required, ...rest]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = randomIndex(i + 1)
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    const password = shuffled.join("")
 
     setCreateForm((prev) => ({ ...prev, password }))
     setResetPassword(password)
@@ -269,8 +279,8 @@ export function AdminClient() {
               </button>
             </div>
             <form className="grid gap-4" onSubmit={async (event) => {
-              await createUser(event)
-              setShowCreateModal(false)
+              const ok = await createUser(event)
+              if (ok) setShowCreateModal(false)
             }}>
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="flex flex-col gap-2">

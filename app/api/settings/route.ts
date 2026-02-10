@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireUser } from "../../../lib/auth"
+import { apiError, requireUser } from "../../../lib/auth"
 import { prisma } from "../../../lib/db"
 
 export async function GET() {
@@ -26,7 +26,7 @@ export async function GET() {
       allowances
     })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }
 
@@ -58,6 +58,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ settings: updated })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }

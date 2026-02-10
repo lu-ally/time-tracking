@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { requireAdmin } from "../../../../lib/auth"
+import { apiError, requireAdmin } from "../../../../lib/auth"
 import { prisma } from "../../../../lib/db"
 
 export const dynamic = "force-dynamic"
@@ -14,6 +14,6 @@ export async function GET() {
     })
     return NextResponse.json({ logs })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }

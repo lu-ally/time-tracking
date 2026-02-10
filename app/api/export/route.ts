@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireUser } from "../../../lib/auth"
+import { apiError, requireUser } from "../../../lib/auth"
 import { prisma } from "../../../lib/db"
 import { workMinutes } from "../../../lib/calculations"
 import { minutesToTime } from "../../../lib/time"
@@ -43,6 +43,6 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }

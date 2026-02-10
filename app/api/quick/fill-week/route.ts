@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireUser } from "../../../../lib/auth"
+import { apiError, requireUser } from "../../../../lib/auth"
 import { prisma } from "../../../../lib/db"
 import { weekDates, parseBerlinDate } from "../../../../lib/time"
 import { format, isWeekend } from "date-fns"
@@ -48,6 +48,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ created })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }

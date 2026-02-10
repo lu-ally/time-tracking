@@ -51,6 +51,7 @@ export function LeaveClient({
   const [popoverDay, setPopoverDay] = useState<string | null>(null)
   const [rangeSelecting, setRangeSelecting] = useState(false)
   const [pickerMonth, setPickerMonth] = useState(initialDate)
+  const [error, setError] = useState<string | null>(null)
   const dialogRef = useRef<HTMLDialogElement | null>(null)
 
   const year = Number(date.split("-")[0])
@@ -113,7 +114,11 @@ export function LeaveClient({
   }, [teamEntries, filter])
 
   const users = Array.from(
-    new Map(teamEntries.map((entry) => [entry.user?.id ?? "", entry.user?.name ?? ""])).entries()
+    new Map(
+      teamEntries
+        .filter((entry) => entry.user?.id)
+        .map((entry) => [entry.user!.id, entry.user!.name])
+    ).entries()
   )
 
   const monthLabel = useMemo(() => {
@@ -181,6 +186,7 @@ export function LeaveClient({
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    setError(null)
     const formData = new FormData(event.currentTarget)
     const payload = {
       startDate: String(formData.get("startDate")),
@@ -191,11 +197,16 @@ export function LeaveClient({
       privateNote: String(formData.get("privateNote") ?? "")
     }
 
-    await fetch("/api/leave", {
+    const response = await fetch("/api/leave", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     })
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      setError(data.error ?? "Speichern fehlgeschlagen")
+      return
+    }
 
     await load()
   }
@@ -217,6 +228,7 @@ export function LeaveClient({
 
   return (
     <div className="grid gap-6">
+      {error ? <div className="text-sm text-ember">{error}</div> : null}
       <div className="grid gap-4 md:grid-cols-3">
         <div className="card p-5">
           <div className="text-sm text-[#6b5e51]">Gesamtanspruch</div>
@@ -420,8 +432,10 @@ export function LeaveClient({
           <form
             className="grid gap-4"
             onSubmit={async (event) => {
+              event.preventDefault()
+              setError(null)
               if (editingEntry) {
-                await fetch("/api/leave", {
+                const response = await fetch("/api/leave", {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -434,6 +448,11 @@ export function LeaveClient({
                     privateNote: String(new FormData(event.currentTarget).get("privateNote") ?? "")
                   })
                 })
+                if (!response.ok) {
+                  const data = await response.json().catch(() => ({}))
+                  setError(data.error ?? "Speichern fehlgeschlagen")
+                  return
+                }
               } else {
                 await handleSubmit(event)
               }
@@ -550,21 +569,41 @@ export function LeaveClient({
             </div>
             <div className="flex flex-wrap gap-4">
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="halfDayStart" />
+                <input
+                  key={`halfDayStart-${editingEntry?.id ?? "new"}`}
+                  type="checkbox"
+                  name="halfDayStart"
+                  defaultChecked={editingEntry?.halfDayStart ?? false}
+                />
                 Start halbtägig
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="halfDayEnd" />
+                <input
+                  key={`halfDayEnd-${editingEntry?.id ?? "new"}`}
+                  type="checkbox"
+                  name="halfDayEnd"
+                  defaultChecked={editingEntry?.halfDayEnd ?? false}
+                />
                 Ende halbtägig
               </label>
             </div>
             <label className="flex flex-col gap-2">
               <span className="label">Notiz (teamweit sichtbar)</span>
-              <input className="input" name="note" />
+              <input
+                key={`note-${editingEntry?.id ?? "new"}`}
+                className="input"
+                name="note"
+                defaultValue={editingEntry?.note ?? ""}
+              />
             </label>
             <label className="flex flex-col gap-2">
               <span className="label">Private Notiz</span>
-              <input className="input" name="privateNote" />
+              <input
+                key={`privateNote-${editingEntry?.id ?? "new"}`}
+                className="input"
+                name="privateNote"
+                defaultValue={editingEntry?.privateNote ?? ""}
+              />
             </label>
             <div className="flex justify-between gap-2">
               {editingEntry ? (
@@ -572,7 +611,13 @@ export function LeaveClient({
                   className="btn btn-ghost text-ember"
                   type="button"
                   onClick={async () => {
-                    await fetch(`/api/leave?id=${editingEntry.id}`, { method: "DELETE" })
+                    setError(null)
+                    const response = await fetch(`/api/leave?id=${editingEntry.id}`, { method: "DELETE" })
+                    if (!response.ok) {
+                      const data = await response.json().catch(() => ({}))
+                      setError(data.error ?? "Löschen fehlgeschlagen")
+                      return
+                    }
                     setEditingEntry(null)
                     setShowModal(false)
                     await load()

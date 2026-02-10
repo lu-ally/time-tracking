@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireUser } from "../../../../lib/auth"
+import { apiError, requireUser } from "../../../../lib/auth"
 import { prisma } from "../../../../lib/db"
 import { addDays, format } from "date-fns"
 import { parseBerlinDate } from "../../../../lib/time"
@@ -42,6 +42,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ entry })
   } catch (error) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return apiError(error)
   }
 }

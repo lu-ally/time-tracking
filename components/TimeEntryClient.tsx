@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   addDays,
   addMonths,
@@ -43,6 +43,11 @@ export function TimeEntryClient({
   }
   holidays: Holiday[]
 }) {
+  const targetForWeekday = useCallback((weekday: number) => {
+    const map = [targetMinutes.sun, targetMinutes.mon, targetMinutes.tue, targetMinutes.wed, targetMinutes.thu, targetMinutes.fri, targetMinutes.sat]
+    return map[weekday]
+  }, [targetMinutes])
+
   const [view, setView] = useState<"day" | "week" | "month">("week")
   const [date, setDate] = useState(initialDate)
   const [entries, setEntries] = useState<TimeEntry[]>([])
@@ -50,6 +55,7 @@ export function TimeEntryClient({
   const [noteSuggestions, setNoteSuggestions] = useState<string[]>([])
   const [showWeekends, setShowWeekends] = useState(false)
   const [saldoRange, setSaldoRange] = useState<"week" | "month" | "year">("week")
+  const [error, setError] = useState<string | null>(null)
 
   const dateObj = useMemo(() => fromZonedTime(`${date}T00:00:00`, BERLIN_TZ), [date])
 
@@ -142,12 +148,21 @@ export function TimeEntryClient({
     return list
   }, [saldoPeriodRange])
 
+  const reloadEntries = async (start: string, end: string) => {
+    const response = await fetch(`/api/time?start=${start}&end=${end}`)
+    if (!response.ok) {
+      setError("Einträge konnten nicht geladen werden")
+      return
+    }
+    const data = await response.json()
+    setEntries(data.entries ?? [])
+    setError(null)
+  }
+
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      const response = await fetch(`/api/time?start=${dataRange.start}&end=${dataRange.end}`)
-      const data = await response.json()
-      setEntries(data.entries ?? [])
+      await reloadEntries(dataRange.start, dataRange.end)
       setLoading(false)
     }
     load()
@@ -168,6 +183,7 @@ export function TimeEntryClient({
 
   const handleSave = async (event: React.FormEvent<HTMLFormElement>, day: string) => {
     event.preventDefault()
+    setError(null)
     const form = event.currentTarget
     const formData = new FormData(form)
     const payload = {
@@ -177,36 +193,47 @@ export function TimeEntryClient({
       breakMinutes: Number(formData.get("breakMinutes")),
       note: String(formData.get("note") ?? "")
     }
-    await fetch("/api/time", {
+    const response = await fetch("/api/time", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     })
-    const response = await fetch(`/api/time?start=${range.start}&end=${range.end}`)
-    const data = await response.json()
-    setEntries(data.entries ?? [])
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      setError(data.error ?? "Speichern fehlgeschlagen")
+      return
+    }
+    await reloadEntries(dataRange.start, dataRange.end)
   }
 
   const copyYesterday = async () => {
-    await fetch("/api/quick/copy-yesterday", {
+    setError(null)
+    const response = await fetch("/api/quick/copy-yesterday", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ date })
     })
-    const response = await fetch(`/api/time?start=${range.start}&end=${range.end}`)
-    const data = await response.json()
-    setEntries(data.entries ?? [])
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      setError(data.error ?? "Kopieren fehlgeschlagen")
+      return
+    }
+    await reloadEntries(dataRange.start, dataRange.end)
   }
 
   const fillWeek = async () => {
-    await fetch("/api/quick/fill-week", {
+    setError(null)
+    const response = await fetch("/api/quick/fill-week", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ date })
     })
-    const response = await fetch(`/api/time?start=${range.start}&end=${range.end}`)
-    const data = await response.json()
-    setEntries(data.entries ?? [])
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      setError(data.error ?? "Woche auffüllen fehlgeschlagen")
+      return
+    }
+    await reloadEntries(dataRange.start, dataRange.end)
   }
 
   const holidayMap = useMemo(() => {
@@ -230,30 +257,15 @@ export function TimeEntryClient({
       const entry = entryMap.get(day)
       const total = entry ? workMinutes(entry) : 0
       const dayDate = fromZonedTime(`${day}T00:00:00`, BERLIN_TZ)
-      const weekday = dayDate.getDay()
       const holiday = holidayMap.get(day)
-      const target =
-        holiday
-          ? 0
-          : weekday === 1
-            ? targetMinutes.mon
-            : weekday === 2
-              ? targetMinutes.tue
-              : weekday === 3
-                ? targetMinutes.wed
-                : weekday === 4
-                  ? targetMinutes.thu
-                  : weekday === 5
-                    ? targetMinutes.fri
-                    : weekday === 6
-                      ? targetMinutes.sat
-                      : targetMinutes.sun
+      const target = holiday ? 0 : targetForWeekday(dayDate.getDay())
       return sum + (total - target)
     }, 0)
-  }, [saldoDays, entryMap, holidayMap, targetMinutes])
+  }, [saldoDays, entryMap, holidayMap, targetForWeekday])
 
   return (
     <div className="space-y-6">
+      {error ? <div className="text-sm text-ember">{error}</div> : null}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h2 className="font-display text-3xl">Zeiterfassung</h2>
@@ -346,24 +358,8 @@ export function TimeEntryClient({
           const entry = entryMap.get(day)
           const total = entry ? workMinutes(entry) : 0
           const dayDate = fromZonedTime(`${day}T00:00:00`, BERLIN_TZ)
-          const weekday = dayDate.getDay()
           const holiday = holidayMap.get(day)
-          const target =
-            holiday
-              ? 0
-              : weekday === 1
-                ? targetMinutes.mon
-                : weekday === 2
-                  ? targetMinutes.tue
-                  : weekday === 3
-                    ? targetMinutes.wed
-                    : weekday === 4
-                      ? targetMinutes.thu
-                      : weekday === 5
-                        ? targetMinutes.fri
-                        : weekday === 6
-                          ? targetMinutes.sat
-                          : targetMinutes.sun
+          const target = holiday ? 0 : targetForWeekday(dayDate.getDay())
           const diff = total - target
           return (
             <div
@@ -454,10 +450,13 @@ export function TimeEntryClient({
                     className="btn btn-ghost px-3 py-1 text-xs hover:translate-y-[-1px] hover:shadow-soft"
                     type="button"
                     onClick={async () => {
-                      await fetch(`/api/time?date=${day}`, { method: "DELETE" })
-                      const response = await fetch(`/api/time?start=${range.start}&end=${range.end}`)
-                      const data = await response.json()
-                      setEntries(data.entries ?? [])
+                      setError(null)
+                      const res = await fetch(`/api/time?date=${day}`, { method: "DELETE" })
+                      if (!res.ok) {
+                        setError("Löschen fehlgeschlagen")
+                        return
+                      }
+                      await reloadEntries(dataRange.start, dataRange.end)
                     }}
                     aria-label="Eintrag löschen"
                     title="Eintrag löschen"
