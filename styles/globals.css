@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  background: radial-gradient(circle at top left, #ffffff 0%, #f7f4ef 50%, #f1ebe0 100%);
+  color: #0b0c0f;
+  min-height: 100vh;
+}
+
+input, button, textarea, select {
+  font: inherit;
+}
+
+::selection {
+  background: #0f766e;
+  color: white;
+}
+
+.container {
+  width: min(1200px, 92vw);
+  margin: 0 auto;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #e6e1d8;
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.btn-primary {
+  background: #0f766e;
+  color: white;
+  box-shadow: 0 10px 20px rgba(15, 118, 110, 0.25);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #0b0c0f;
+  border: 1px solid #e6e1d8;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid #e6e1d8;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fcfbf8;
+}
+
+.label {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b5e51;
+  font-weight: 600;
+}
+
+.kbd {
+  font-family: ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  border: 1px solid #e6e1d8;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #f7f4ef;
+  font-size: 12px;
+}

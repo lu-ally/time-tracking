@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  user
+  admin
+}
+
+model User {
+  id           String           @id @default(cuid())
+  email        String           @unique
+  name         String
+  passwordHash String
+  role         UserRole         @default(user)
+  targetMinutesMon Int          @default(480)
+  targetMinutesTue Int          @default(480)
+  targetMinutesWed Int          @default(480)
+  targetMinutesThu Int          @default(480)
+  targetMinutesFri Int          @default(480)
+  targetMinutesSat Int          @default(0)
+  targetMinutesSun Int          @default(0)
+  holidayState String           @default("HH")
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  timeEntries  TimeEntry[]
+  leaveEntries LeaveEntry[]
+  allowances   LeaveAllowance[]
+  sessions     Session[]
+  resetTokens  PasswordResetToken[]
+  templates    ActivityTemplate[]
+}
+
+model TimeEntry {
+  id           String   @id @default(cuid())
+  userId       String
+  date         String
+  startMinutes Int
+  endMinutes   Int
+  breakMinutes Int
+  note         String   @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+  @@index([date])
+}
+
+model LeaveEntry {
+  id           String   @id @default(cuid())
+  userId       String
+  startDate    String
+  endDate      String
+  halfDayStart Boolean  @default(false)
+  halfDayEnd   Boolean  @default(false)
+  note         String   @default("")
+  privateNote  String   @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([startDate, endDate])
+}
+
+model LeaveAllowance {
+  id             String   @id @default(cuid())
+  userId         String
+  year           Int
+  annualDays     Int
+  carryOverDays  Int
+  adjustedDays   Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, year])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorId      String
+  targetUserId String
+  action       String
+  meta         Json
+  createdAt    DateTime @default(now())
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Holiday {
+  id    String @id @default(cuid())
+  date  String
+  name  String
+  state String
+
+  @@unique([date, state])
+}
+
+model ActivityTemplate {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
