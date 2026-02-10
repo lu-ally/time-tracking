@@ -4,6 +4,7 @@ import { emailSchema, passwordSchema } from "../../../../lib/validation"
 import { hashPassword, createSession } from "../../../../lib/auth"
 
 export async function POST(request: NextRequest) {
+  return NextResponse.json({ error: "Registration disabled" }, { status: 403 })
   const form = await request.formData()
   const name = String(form.get("name") ?? "").trim()
   const email = String(form.get("email") ?? "").toLowerCase().trim()

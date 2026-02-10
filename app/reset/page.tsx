@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { ResetForm } from "../../components/ResetForm"
 
 export default async function ResetPage({
   searchParams
@@ -23,30 +24,7 @@ export default async function ResetPage({
             Passworts.
           </p>
         </div>
-        {error ? <div className="text-sm text-ember">{error}</div> : null}
-        {success ? <div className="text-sm text-accent">{success}</div> : null}
-        <form className="space-y-4" method="post" action="/api/auth/reset/request">
-          <label className="flex flex-col gap-2">
-            <span className="label">E-Mail</span>
-            <input className="input" type="email" name="email" required />
-          </label>
-          <button className="btn btn-primary" type="submit">
-            Reset Token anfordern
-          </button>
-        </form>
-        <form className="space-y-4" method="post" action="/api/auth/reset/confirm">
-          <label className="flex flex-col gap-2">
-            <span className="label">Token</span>
-            <input className="input" type="text" name="token" required />
-          </label>
-          <label className="flex flex-col gap-2">
-            <span className="label">Neues Passwort</span>
-            <input className="input" type="password" name="password" required />
-          </label>
-          <button className="btn btn-primary" type="submit">
-            Passwort setzen
-          </button>
-        </form>
+        <ResetForm error={error} success={success} />
         <div className="text-sm">
           <Link href="/login" className="underline">
             Zurück zum Login

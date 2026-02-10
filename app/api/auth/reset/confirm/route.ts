@@ -12,8 +12,12 @@ export async function POST(request: NextRequest) {
   const form = await request.formData()
   const token = String(form.get("token") ?? "").trim()
   const password = String(form.get("password") ?? "")
+  const passwordConfirm = String(form.get("passwordConfirm") ?? "")
 
   if (!token || !passwordSchema.safeParse(password).success) {
+    return NextResponse.redirect(new URL("/reset?error=invalid", request.url))
+  }
+  if (password !== passwordConfirm) {
     return NextResponse.redirect(new URL("/reset?error=invalid", request.url))
   }
 

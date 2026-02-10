@@ -43,9 +43,6 @@ export default async function LoginPage({
           <Link href="/reset" className="underline">
             Passwort vergessen?
           </Link>
-          <Link href="/register" className="underline">
-            Registrieren
-          </Link>
         </div>
       </div>
     </div>
