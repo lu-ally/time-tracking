@@ -32,7 +32,6 @@ model User {
   leaveEntries LeaveEntry[]
   allowances   LeaveAllowance[]
   sessions     Session[]
-  resetTokens  PasswordResetToken[]
   templates    ActivityTemplate[]
 }
 
@@ -99,16 +98,6 @@ model Session {
   userId    String
   tokenHash String   @unique
   expiresAt DateTime
-
-  user User @relation(fields: [userId], references: [id])
-}
-
-model PasswordResetToken {
-  id        String   @id @default(cuid())
-  userId    String
-  tokenHash String   @unique
-  expiresAt DateTime
-  usedAt    DateTime?
 
   user User @relation(fields: [userId], references: [id])
 }

@@ -50,11 +50,11 @@ npm run test:e2e
 - **Sollzeit**: Minuten pro Arbeitstag (Default: 480). Wochenendtage und Feiertage setzen Sollzeit auf 0.
 - **Urlaub**: Berechnung zaehlt nur Werktage (Mo-Fr), Feiertage werden nicht abgezogen. Halbtag kann fuer Start oder Ende gesetzt werden.
 - **Feiertage**: Hamburg (HH) lokal berechnet und in der DB gespeichert. Erweiterung fuer weitere Bundeslaender vorbereitet.
-- **Reset Token**: Wird in der Konsole ausgegeben (MVP).
+- **User-Onboarding**: Keine Selbstregistrierung. Admins legen Accounts an.
 
 ## Wichtige Routen
 
-- `/login`, `/register`, `/reset`
+- `/login`
 - `/time` Zeiterfassung (Tag/Woche/Monat)
 - `/leave` Urlaubsplanung (Teamkalender)
 - `/settings` Sollzeiten & Kontingente
@@ -62,8 +62,7 @@ npm run test:e2e
 
 ## API (Auszug)
 
-- `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`
-- `POST /api/auth/reset/request`, `POST /api/auth/reset/confirm`
+- `POST /api/auth/login`, `POST /api/auth/logout`
 - `GET/POST /api/time`
 - `GET/POST /api/leave`
 - `GET /api/export` (CSV)
