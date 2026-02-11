@@ -1,16 +1,42 @@
-import { test, expect } from "@playwright/test"
+import { expect, test, type Page } from "@playwright/test"
+import { PrismaClient } from "@prisma/client"
+import { hashPassword } from "../../lib/password"
 
-const randomEmail = () => `user${Date.now()}@example.com`
+const prisma = new PrismaClient()
+const TEST_PASSWORD = "ChangeMe123!"
+
+const randomEmail = () => `e2e-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`
+
+async function createTestUser(name: string) {
+  const email = randomEmail()
+  const passwordHash = await hashPassword(TEST_PASSWORD)
+  await prisma.user.create({
+    data: {
+      name,
+      email,
+      passwordHash,
+      role: "user"
+    }
+  })
+  return { email }
+}
+
+async function login(page: Page, email: string) {
+  await page.goto("/login")
+  await page.getByLabel("E-Mail").fill(email)
+  await page.getByLabel("Passwort").fill(TEST_PASSWORD)
+  await page.getByRole("button", { name: "Einloggen" }).click()
+  await expect(page).toHaveURL(/\/time/)
+}
+
+test.afterAll(async () => {
+  await prisma.$disconnect()
+})
 
 test("login + time entry", async ({ page }) => {
-  const email = randomEmail()
-  await page.goto("/register")
-  await page.getByLabel("Name").fill("Test User")
-  await page.getByLabel("E-Mail").fill(email)
-  await page.getByLabel("Passwort").fill("ChangeMe123")
-  await page.getByRole("button", { name: "Registrieren" }).click()
+  const user = await createTestUser("Test User")
+  await login(page, user.email)
 
-  await expect(page).toHaveURL(/\/time/)
   await page.getByLabel("Start").first().fill("09:00")
   await page.getByLabel("Ende").first().fill("17:00")
   await page.getByLabel("Pause (Min.)").first().fill("30")
@@ -21,12 +47,8 @@ test("login + time entry", async ({ page }) => {
 })
 
 test("leave entry visible in team calendar", async ({ page }) => {
-  const email = randomEmail()
-  await page.goto("/register")
-  await page.getByLabel("Name").fill("Leave User")
-  await page.getByLabel("E-Mail").fill(email)
-  await page.getByLabel("Passwort").fill("ChangeMe123")
-  await page.getByRole("button", { name: "Registrieren" }).click()
+  const user = await createTestUser("Leave User")
+  await login(page, user.email)
 
   await page.goto("/leave")
   await page.getByLabel("Start").fill("2026-06-10")

@@ -7,20 +7,17 @@ type User = {
   email: string
   name: string
   role: "user" | "admin"
-}
-
-type AuditLog = {
-  id: string
-  actorId: string
-  targetUserId: string
-  action: string
-  meta: Record<string, unknown>
-  createdAt: string
+  targetMinutesMon: number
+  targetMinutesTue: number
+  targetMinutesWed: number
+  targetMinutesThu: number
+  targetMinutesFri: number
+  targetMinutesSat: number
+  targetMinutesSun: number
 }
 
 export function AdminClient() {
   const [users, setUsers] = useState<User[]>([])
-  const [logs, setLogs] = useState<AuditLog[]>([])
   const [error, setError] = useState<string | null>(null)
   const [createForm, setCreateForm] = useState({
     name: "",
@@ -44,15 +41,20 @@ export function AdminClient() {
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const deleteDialogRef = useRef<HTMLDialogElement | null>(null)
   const resetDialogRef = useRef<HTMLDialogElement | null>(null)
+  const weekdays = [
+    { key: "mon", label: "Mo" },
+    { key: "tue", label: "Di" },
+    { key: "wed", label: "Mi" },
+    { key: "thu", label: "Do" },
+    { key: "fri", label: "Fr" },
+    { key: "sat", label: "Sa" },
+    { key: "sun", label: "So" }
+  ] as const
 
   const load = useCallback(async () => {
     const usersResponse = await fetch("/api/admin/users", { cache: "no-store" })
     const usersData = await usersResponse.json()
     setUsers(usersData.users ?? [])
-
-    const auditResponse = await fetch("/api/admin/audit", { cache: "no-store" })
-    const auditData = await auditResponse.json()
-    setLogs(auditData.logs ?? [])
   }, [])
 
   useEffect(() => {
@@ -198,6 +200,43 @@ export function AdminClient() {
     setResetPassword(password)
     setResetConfirm(password)
   }
+
+  const updateTargetMinutes = async (event: React.FormEvent<HTMLFormElement>, userId: string) => {
+    event.preventDefault()
+    setError(null)
+    const formData = new FormData(event.currentTarget)
+    const toMinutes = (key: string) => {
+      const raw = String(formData.get(key) ?? "0").replace(",", ".")
+      const hours = Number(raw)
+      if (!Number.isFinite(hours) || hours < 0) return NaN
+      return Math.round(hours * 60)
+    }
+    const payload = {
+      userId,
+      targetMinutes: {
+        mon: toMinutes("target-mon"),
+        tue: toMinutes("target-tue"),
+        wed: toMinutes("target-wed"),
+        thu: toMinutes("target-thu"),
+        fri: toMinutes("target-fri"),
+        sat: toMinutes("target-sat"),
+        sun: toMinutes("target-sun")
+      }
+    }
+    const response = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      setError(data.error ?? "Soll-Arbeitszeit konnte nicht gespeichert werden")
+      return
+    }
+    await load()
+  }
+
+  const minutesToHours = (minutes: number) => (minutes / 60).toFixed(2)
   return (
     <div className="grid gap-6">
       <div className="card p-6">
@@ -253,6 +292,45 @@ export function AdminClient() {
                   Entfernen
                 </button>
               </div>
+              <form
+                className="mt-4 grid gap-2"
+                onSubmit={(event) => void updateTargetMinutes(event, user.id)}
+              >
+                <span className="label">Soll-Arbeitszeit pro Tag (Stunden)</span>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+                  {weekdays.map((day) => {
+                    const keyMap = {
+                      mon: user.targetMinutesMon,
+                      tue: user.targetMinutesTue,
+                      wed: user.targetMinutesWed,
+                      thu: user.targetMinutesThu,
+                      fri: user.targetMinutesFri,
+                      sat: user.targetMinutesSat,
+                      sun: user.targetMinutesSun
+                    }
+                    return (
+                      <label key={day.key} className="flex flex-col gap-1 text-xs text-[#6b5e51]">
+                        <span>{day.label}</span>
+                        <input
+                          className="input py-2 text-sm"
+                          type="number"
+                          name={`target-${day.key}`}
+                          min={0}
+                          max={24}
+                          step="0.25"
+                          defaultValue={minutesToHours(keyMap[day.key])}
+                          required
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
+                <div className="flex justify-end">
+                  <button className="btn btn-ghost px-3 py-1 text-[11px]" type="submit">
+                    Sollzeit speichern
+                  </button>
+                </div>
+              </form>
             </div>
           ))}
         </div>
@@ -311,7 +389,7 @@ export function AdminClient() {
                   <div className="flex gap-2">
                     <input
                       className="input"
-                      type="text"
+                      type="password"
                       value={createForm.password}
                       onChange={(event) =>
                         setCreateForm((prev) => ({ ...prev, password: event.target.value }))
@@ -439,7 +517,7 @@ export function AdminClient() {
                 <div className="flex gap-2">
                   <input
                     className="input"
-                    type="text"
+                    type="password"
                     value={resetPassword}
                     onChange={(event) => setResetPassword(event.target.value)}
                   />
@@ -525,27 +603,6 @@ export function AdminClient() {
             Speichern
           </button>
         </form>
-      </div>
-
-      <div className="card p-6">
-        <h2 className="font-display text-xl mb-4">Audit Log</h2>
-        <div className="grid gap-3">
-          {logs.length === 0 ? (
-            <div className="text-[#6b5e51]">Noch keine Einträge.</div>
-          ) : (
-            logs.map((log) => (
-              <div key={log.id} className="border border-sand rounded-2xl p-4">
-                <div className="text-sm">{log.action}</div>
-                <div className="text-xs text-[#6b5e51]">
-                  {new Date(log.createdAt).toLocaleString("de-DE")}
-                </div>
-                <pre className="text-xs mt-2 bg-sand/40 p-2 rounded-lg overflow-auto">
-{JSON.stringify(log.meta, null, 2)}
-                </pre>
-              </div>
-            ))
-          )}
-        </div>
       </div>
     </div>
   )

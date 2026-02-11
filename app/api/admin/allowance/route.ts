@@ -12,7 +12,17 @@ export async function POST(request: NextRequest) {
     const carryOverDays = Number(body.carryOverDays)
     const adjustedDays = Number(body.adjustedDays ?? 0)
 
-    if (!userId || !Number.isFinite(year)) {
+    if (
+      !userId ||
+      !Number.isInteger(year) ||
+      year < 2000 ||
+      year > 2100 ||
+      !Number.isFinite(annualDays) ||
+      !Number.isFinite(carryOverDays) ||
+      !Number.isFinite(adjustedDays) ||
+      annualDays < 0 ||
+      carryOverDays < 0
+    ) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
@@ -21,16 +31,6 @@ export async function POST(request: NextRequest) {
       update: { annualDays, carryOverDays, adjustedDays },
       create: { userId, year, annualDays, carryOverDays, adjustedDays }
     })
-
-    await prisma.auditLog.create({
-      data: {
-        actorId: admin.id,
-        targetUserId: userId,
-        action: "leave_allowance_update",
-        meta: { year, annualDays, carryOverDays, adjustedDays }
-      }
-    })
-
     return NextResponse.json({ allowance })
   } catch (error) {
     return apiError(error)

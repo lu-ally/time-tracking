@@ -85,15 +85,6 @@ model LeaveAllowance {
   @@unique([userId, year])
 }
 
-model AuditLog {
-  id           String   @id @default(cuid())
-  actorId      String
-  targetUserId String
-  action       String
-  meta         Json
-  createdAt    DateTime @default(now())
-}
-
 model Session {
   id        String   @id @default(cuid())
   userId    String

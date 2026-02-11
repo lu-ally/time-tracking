@@ -57,8 +57,7 @@ npm run test:e2e
 - `/login`
 - `/time` Zeiterfassung (Tag/Woche/Monat)
 - `/leave` Urlaubsplanung (Teamkalender)
-- `/settings` Sollzeiten & Kontingente
-- `/admin` Korrekturen + Audit Log
+- `/admin` Userverwaltung & Korrekturen
 
 ## API (Auszug)
 
@@ -67,8 +66,7 @@ npm run test:e2e
 - `GET/POST /api/leave`
 - `GET /api/export` (CSV)
 - `GET /api/holidays`
-- `GET/POST /api/settings`
-- `GET /api/admin/users`, `POST /api/admin/allowance`, `GET /api/admin/audit`
+- `GET /api/admin/users`, `POST /api/admin/allowance`
 
 ## Naechste Schritte (optional)
 

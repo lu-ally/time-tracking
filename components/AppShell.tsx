@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { getSessionUser } from "../lib/auth"
 import { logoutAction } from "../app/actions"
 import { TopNav } from "./TopNav"
@@ -22,7 +23,7 @@ export async function AppShell({
         <div className="container flex flex-wrap items-center justify-between gap-4 py-5">
           <Link href="/time" className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-accent text-white flex items-center justify-center">
-              <img src="/icon-white.svg" alt="" className="h-5 w-5" />
+              <Image src="/icon-white.svg" alt="" width={20} height={20} />
             </div>
             <div>
               <div className="font-display text-xl">AllyTimeTracking</div>
