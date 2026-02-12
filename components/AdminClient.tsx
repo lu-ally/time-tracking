@@ -469,11 +469,12 @@ export function AdminClient() {
                   <div className="flex gap-2">
                     <input
                       className="input"
-                      type="password"
+                      type="text"
                       value={createForm.password}
                       onChange={(event) =>
                         setCreateForm((prev) => ({ ...prev, password: event.target.value }))
                       }
+                      spellCheck={false}
                       required
                     />
                     <button
