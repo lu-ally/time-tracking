@@ -105,6 +105,12 @@ export function LeaveClient({
   }, [entries, holidays, used])
 
   const remainingLocal = allowance - usedLocal
+  const formatDays = useCallback((value: number) => {
+    return new Intl.NumberFormat("de-DE", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    }).format(value)
+  }, [])
 
   const filteredTeam = useMemo(() => {
     if (filter === "all") return teamEntries
@@ -228,18 +234,18 @@ export function LeaveClient({
       <div className="grid gap-4 md:grid-cols-3">
         <div className="card p-5">
           <div className="text-sm text-[#6b5e51]">Gesamtanspruch</div>
-          <div className="font-display text-3xl">{allowance} Tage</div>
+          <div className="font-display text-3xl">{formatDays(allowance)} Tage</div>
         </div>
         <div className="card p-5">
           <div className="text-sm text-[#6b5e51]">Verbraucht</div>
-          <div className="font-display text-3xl">{usedLocal} Tage</div>
+          <div className="font-display text-3xl">{formatDays(usedLocal)} Tage</div>
         </div>
         <div className="card p-5">
           <div className="text-sm text-[#6b5e51]">Verbleibend</div>
           <div
             className={`font-display text-3xl ${remainingLocal < 0 ? "text-ember" : "text-accent"}`}
           >
-            {remainingLocal} Tage
+            {formatDays(remainingLocal)} Tage
           </div>
         </div>
       </div>

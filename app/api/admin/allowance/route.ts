@@ -2,24 +2,34 @@ import { NextRequest, NextResponse } from "next/server"
 import { apiError, requireAdmin } from "../../../../lib/auth"
 import { prisma } from "../../../../lib/db"
 
+function toDayNumber(value: unknown) {
+  const normalized = String(value ?? "")
+    .trim()
+    .replace(",", ".")
+  if (!/^-?\d+(\.\d{1,2})?$/.test(normalized)) return null
+  const parsed = Number(normalized)
+  if (!Number.isFinite(parsed)) return null
+  return Math.round(parsed * 100) / 100
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const admin = await requireAdmin()
+    await requireAdmin()
     const body = await request.json()
     const userId = String(body.userId ?? "")
     const year = Number(body.year)
-    const annualDays = Number(body.annualDays)
-    const carryOverDays = Number(body.carryOverDays)
-    const adjustedDays = Number(body.adjustedDays ?? 0)
+    const annualDays = toDayNumber(body.annualDays)
+    const carryOverDays = toDayNumber(body.carryOverDays)
+    const adjustedDays = toDayNumber(body.adjustedDays ?? 0)
 
     if (
       !userId ||
       !Number.isInteger(year) ||
       year < 2000 ||
       year > 2100 ||
-      !Number.isFinite(annualDays) ||
-      !Number.isFinite(carryOverDays) ||
-      !Number.isFinite(adjustedDays) ||
+      annualDays === null ||
+      carryOverDays === null ||
+      adjustedDays === null ||
       annualDays < 0 ||
       carryOverDays < 0
     ) {

@@ -112,12 +112,18 @@ export function AdminClient() {
     setError(null)
     setAllowanceSaveState("saving")
     const formData = new FormData(event.currentTarget)
+    const parseDayValue = (key: string) => {
+      const raw = String(formData.get(key) ?? "0").trim().replace(",", ".")
+      const parsed = Number(raw)
+      if (!Number.isFinite(parsed)) return NaN
+      return Math.round(parsed * 100) / 100
+    }
     const payload = {
       userId: String(formData.get("userId")),
       year: Number(formData.get("year")),
-      annualDays: Number(formData.get("annualDays")),
-      carryOverDays: Number(formData.get("carryOverDays")),
-      adjustedDays: Number(formData.get("adjustedDays"))
+      annualDays: parseDayValue("annualDays"),
+      carryOverDays: parseDayValue("carryOverDays"),
+      adjustedDays: parseDayValue("adjustedDays")
     }
 
     const response = await fetch("/api/admin/allowance", {
@@ -669,15 +675,15 @@ export function AdminClient() {
             </label>
             <label className="flex flex-col gap-2">
               <span className="label">Jahresurlaub</span>
-              <input className="input" name="annualDays" type="number" defaultValue={30} />
+              <input className="input" name="annualDays" type="number" min={0} step="0.01" defaultValue={30} />
             </label>
             <label className="flex flex-col gap-2">
               <span className="label">Resturlaub</span>
-              <input className="input" name="carryOverDays" type="number" defaultValue={0} />
+              <input className="input" name="carryOverDays" type="number" min={0} step="0.01" defaultValue={0} />
             </label>
             <label className="flex flex-col gap-2">
               <span className="label">Korrektur</span>
-              <input className="input" name="adjustedDays" type="number" defaultValue={0} />
+              <input className="input" name="adjustedDays" type="number" step="0.01" defaultValue={0} />
             </label>
           </div>
           <button
