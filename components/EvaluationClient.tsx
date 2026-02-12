@@ -76,7 +76,12 @@ export function EvaluationClient({ initialMonth }: { initialMonth: string }) {
             ›
           </button>
         </div>
-        {loading ? <span className="text-sm text-[#6b5e51]">Lädt...</span> : null}
+        <div className="flex items-center gap-2">
+          <a className="btn btn-primary px-3 py-1 text-xs whitespace-nowrap" href="/api/admin/evaluation/export">
+            CSV Export (Alle User)
+          </a>
+          {loading ? <span className="text-sm text-[#6b5e51]">Lädt...</span> : null}
+        </div>
       </div>
 
       {error ? <div className="text-sm text-ember">{error}</div> : null}

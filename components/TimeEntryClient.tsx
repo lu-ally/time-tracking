@@ -344,12 +344,6 @@ export function TimeEntryClient({
           <button className="btn btn-ghost px-3 py-1 text-xs" type="button" onClick={fillWeek}>
             Woche automatisch auffüllen
           </button>
-          <a
-            className="btn btn-primary px-3 py-1 text-xs"
-            href={`/api/export?start=${range.start}&end=${range.end}`}
-          >
-            CSV Export
-          </a>
         </div>
       </div>
 
