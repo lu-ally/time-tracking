@@ -27,6 +27,7 @@ coverage/
 
 # Playwright
 playwright-report/
+test-results/
 
 # Cache
 .turbo/

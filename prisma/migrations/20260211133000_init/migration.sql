@@ -8,7 +8,13 @@ CREATE TABLE "User" (
     "name" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
     "role" "UserRole" NOT NULL DEFAULT 'user',
-    "targetMinutesPerDay" INTEGER NOT NULL DEFAULT 480,
+    "targetMinutesMon" INTEGER NOT NULL DEFAULT 480,
+    "targetMinutesTue" INTEGER NOT NULL DEFAULT 480,
+    "targetMinutesWed" INTEGER NOT NULL DEFAULT 480,
+    "targetMinutesThu" INTEGER NOT NULL DEFAULT 480,
+    "targetMinutesFri" INTEGER NOT NULL DEFAULT 480,
+    "targetMinutesSat" INTEGER NOT NULL DEFAULT 0,
+    "targetMinutesSun" INTEGER NOT NULL DEFAULT 0,
     "holidayState" TEXT NOT NULL DEFAULT 'HH',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -62,18 +68,6 @@ CREATE TABLE "LeaveAllowance" (
 );
 
 -- CreateTable
-CREATE TABLE "AuditLog" (
-    "id" TEXT NOT NULL,
-    "actorId" TEXT NOT NULL,
-    "targetUserId" TEXT NOT NULL,
-    "action" TEXT NOT NULL,
-    "meta" JSONB NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "Session" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -81,17 +75,6 @@ CREATE TABLE "Session" (
     "expiresAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "PasswordResetToken" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "tokenHash" TEXT NOT NULL,
-    "expiresAt" TIMESTAMP(3) NOT NULL,
-    "usedAt" TIMESTAMP(3),
-
-    CONSTRAINT "PasswordResetToken_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -133,9 +116,6 @@ CREATE UNIQUE INDEX "LeaveAllowance_userId_year_key" ON "LeaveAllowance"("userId
 CREATE UNIQUE INDEX "Session_tokenHash_key" ON "Session"("tokenHash");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PasswordResetToken_tokenHash_key" ON "PasswordResetToken"("tokenHash");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Holiday_date_state_key" ON "Holiday"("date", "state");
 
 -- AddForeignKey
@@ -151,7 +131,5 @@ ALTER TABLE "LeaveAllowance" ADD CONSTRAINT "LeaveAllowance_userId_fkey" FOREIGN
 ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "PasswordResetToken" ADD CONSTRAINT "PasswordResetToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "ActivityTemplate" ADD CONSTRAINT "ActivityTemplate_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
