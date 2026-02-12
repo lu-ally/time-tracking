@@ -19,6 +19,7 @@ export default async function TimePage({
     <AppShell
       title="Zeiterfassung"
       hideTitle
+      currentUser={{ name: user.name, role: user.role }}
     >
       <TimeEntryClient
         initialDate={date}

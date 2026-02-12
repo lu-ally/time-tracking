@@ -3,9 +3,9 @@ import { AdminClient } from "../../components/AdminClient"
 import { adminOrRedirect } from "../../lib/guards"
 
 export default async function AdminPage() {
-  await adminOrRedirect()
+  const user = await adminOrRedirect()
   return (
-    <AppShell title="Admin">
+    <AppShell title="Admin" currentUser={{ name: user.name, role: user.role }}>
       <AdminClient />
     </AppShell>
   )

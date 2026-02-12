@@ -1,6 +1,5 @@
 import Link from "next/link"
 import Image from "next/image"
-import { getSessionUser } from "../lib/auth"
 import { logoutAction } from "../app/actions"
 import { TopNav } from "./TopNav"
 
@@ -8,15 +7,18 @@ export async function AppShell({
   children,
   title,
   description,
-  hideTitle = false
+  hideTitle = false,
+  currentUser
 }: {
   children: React.ReactNode
   title: string
   description?: string
   hideTitle?: boolean
+  currentUser: {
+    name: string
+    role: "user" | "admin"
+  }
 }) {
-  const user = await getSessionUser()
-
   return (
     <div className="min-h-screen">
       <header className="border-b border-sand bg-white/70 backdrop-blur">
@@ -29,9 +31,9 @@ export async function AppShell({
               <div className="font-display text-xl">AllyTimeTracking</div>
             </div>
           </Link>
-          <TopNav isAdmin={user?.role === "admin"} />
+          <TopNav isAdmin={currentUser.role === "admin"} />
           <div className="flex items-center gap-3">
-            <span className="text-sm text-[#6b5e51]">{user?.name ?? ""}</span>
+            <span className="text-sm text-[#6b5e51]">{currentUser.name}</span>
             <form action={logoutAction}>
               <button className="btn btn-primary" type="submit">
                 Logout

@@ -5,11 +5,11 @@ import { adminOrRedirect } from "../../lib/guards"
 import { BERLIN_TZ } from "../../lib/time"
 
 export default async function EvaluationPage() {
-  await adminOrRedirect()
+  const user = await adminOrRedirect()
   const initialMonth = formatInTimeZone(new Date(), BERLIN_TZ, "yyyy-MM")
 
   return (
-    <AppShell title="Auswertung">
+    <AppShell title="Auswertung" currentUser={{ name: user.name, role: user.role }}>
       <EvaluationClient initialMonth={initialMonth} />
     </AppShell>
   )

@@ -81,7 +81,7 @@ export default async function LeavePage({
   }, 0)
 
   return (
-    <AppShell title="Urlaubsplanung">
+    <AppShell title="Urlaubsplanung" currentUser={{ name: user.name, role: user.role }}>
       <LeaveClient
         initialDate={date}
         holidays={holidays}
