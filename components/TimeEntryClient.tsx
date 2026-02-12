@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   addDays,
   addMonths,
@@ -25,6 +25,8 @@ export type TimeEntry = {
   breakMinutes: number
   note: string
 }
+
+type SaveState = "idle" | "saving" | "success"
 
 export function TimeEntryClient({
   initialDate,
@@ -56,6 +58,8 @@ export function TimeEntryClient({
   const [showWeekends, setShowWeekends] = useState(false)
   const [saldoRange, setSaldoRange] = useState<"week" | "month" | "year">("week")
   const [error, setError] = useState<string | null>(null)
+  const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({})
+  const saveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   const dateObj = useMemo(() => fromZonedTime(`${date}T00:00:00`, BERLIN_TZ), [date])
 
@@ -177,6 +181,15 @@ export function TimeEntryClient({
     load()
   }, [])
 
+  useEffect(() => {
+    const timers = saveTimersRef.current
+    return () => {
+      for (const timer of Object.values(timers)) {
+        clearTimeout(timer)
+      }
+    }
+  }, [])
+
   const entryMap = useMemo(() => {
     return new Map(entries.map((entry) => [entry.date, entry]))
   }, [entries])
@@ -184,6 +197,7 @@ export function TimeEntryClient({
   const handleSave = async (event: React.FormEvent<HTMLFormElement>, day: string) => {
     event.preventDefault()
     setError(null)
+    setSaveStates((prev) => ({ ...prev, [day]: "saving" }))
     const form = event.currentTarget
     const formData = new FormData(form)
     const payload = {
@@ -200,10 +214,19 @@ export function TimeEntryClient({
     })
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
+      setSaveStates((prev) => ({ ...prev, [day]: "idle" }))
       setError(data.error ?? "Speichern fehlgeschlagen")
       return
     }
     await reloadEntries(dataRange.start, dataRange.end)
+    if (saveTimersRef.current[day]) {
+      clearTimeout(saveTimersRef.current[day])
+    }
+    setSaveStates((prev) => ({ ...prev, [day]: "success" }))
+    saveTimersRef.current[day] = setTimeout(() => {
+      setSaveStates((prev) => ({ ...prev, [day]: "idle" }))
+      delete saveTimersRef.current[day]
+    }, 1000)
   }
 
   const copyYesterday = async () => {
@@ -349,6 +372,7 @@ export function TimeEntryClient({
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {days.map((day) => {
+          const saveState = saveStates[day] ?? "idle"
           const entry = entryMap.get(day)
           const total = entry ? workMinutes(entry) : 0
           const dayDate = fromZonedTime(`${day}T00:00:00`, BERLIN_TZ)
@@ -475,9 +499,35 @@ export function TimeEntryClient({
                       />
                     </svg>
                   </button>
-                  <button className="btn btn-primary" type="submit">
-                    Speichern
+                  <button
+                    className={`btn ${saveState === "success" ? "btn-ghost text-accent border-accent" : "btn-primary"}`}
+                    type="submit"
+                    disabled={saveState === "saving"}
+                    aria-busy={saveState === "saving"}
+                  >
+                    {saveState === "saving" ? "Speichert..." : null}
+                    {saveState === "success" ? (
+                      <span className="inline-flex items-center gap-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M9.86338 18.0001C9.58738 18.0001 9.32338 17.8861 9.13438 17.6851L4.27138 12.5061C3.89238 12.1041 3.91338 11.4711 4.31538 11.0931C4.71838 10.7151 5.35138 10.7351 5.72838 11.1371L9.85338 15.5281L18.2614 6.32611C18.6354 5.91711 19.2674 5.89011 19.6754 6.26211C20.0824 6.63411 20.1104 7.26711 19.7384 7.67411L10.6014 17.6741C10.4144 17.8801 10.1484 17.9981 9.87038 18.0001H9.86338Z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                        Gespeichert
+                      </span>
+                    ) : null}
+                    {saveState === "idle" ? "Speichern" : null}
                   </button>
+                  <span className="sr-only" aria-live="polite">
+                    {saveState === "saving"
+                      ? "Speichert"
+                      : saveState === "success"
+                        ? "Gespeichert"
+                        : ""}
+                  </span>
                 </div>
               </form>
             </div>

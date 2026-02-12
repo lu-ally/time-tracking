@@ -16,6 +16,8 @@ type User = {
   targetMinutesSun: number
 }
 
+type SaveState = "idle" | "saving" | "success"
+
 export function AdminClient() {
   const [users, setUsers] = useState<User[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -38,9 +40,13 @@ export function AdminClient() {
   } | null>(null)
   const [resetPassword, setResetPassword] = useState("")
   const [resetConfirm, setResetConfirm] = useState("")
+  const [targetSaveStates, setTargetSaveStates] = useState<Record<string, SaveState>>({})
+  const [allowanceSaveState, setAllowanceSaveState] = useState<SaveState>("idle")
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const deleteDialogRef = useRef<HTMLDialogElement | null>(null)
   const resetDialogRef = useRef<HTMLDialogElement | null>(null)
+  const targetSaveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const allowanceSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const weekdays = [
     { key: "mon", label: "Mo" },
     { key: "tue", label: "Di" },
@@ -88,8 +94,23 @@ export function AdminClient() {
     }
   }, [resetPasswordFor])
 
+  useEffect(() => {
+    const targetTimers = targetSaveTimersRef.current
+    const allowanceTimer = allowanceSaveTimerRef.current
+    return () => {
+      for (const timer of Object.values(targetTimers)) {
+        clearTimeout(timer)
+      }
+      if (allowanceTimer) {
+        clearTimeout(allowanceTimer)
+      }
+    }
+  }, [])
+
   const updateAllowance = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    setError(null)
+    setAllowanceSaveState("saving")
     const formData = new FormData(event.currentTarget)
     const payload = {
       userId: String(formData.get("userId")),
@@ -99,12 +120,26 @@ export function AdminClient() {
       adjustedDays: Number(formData.get("adjustedDays"))
     }
 
-    await fetch("/api/admin/allowance", {
+    const response = await fetch("/api/admin/allowance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     })
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      setAllowanceSaveState("idle")
+      setError(data.error ?? "Urlaubskorrektur konnte nicht gespeichert werden")
+      return
+    }
     await load()
+    if (allowanceSaveTimerRef.current) {
+      clearTimeout(allowanceSaveTimerRef.current)
+    }
+    setAllowanceSaveState("success")
+    allowanceSaveTimerRef.current = setTimeout(() => {
+      setAllowanceSaveState("idle")
+      allowanceSaveTimerRef.current = null
+    }, 1000)
   }
 
   const updateRole = async (userId: string, role: "user" | "admin") => {
@@ -204,6 +239,7 @@ export function AdminClient() {
   const updateTargetMinutes = async (event: React.FormEvent<HTMLFormElement>, userId: string) => {
     event.preventDefault()
     setError(null)
+    setTargetSaveStates((prev) => ({ ...prev, [userId]: "saving" }))
     const formData = new FormData(event.currentTarget)
     const toMinutes = (key: string) => {
       const raw = String(formData.get(key) ?? "0").replace(",", ".")
@@ -230,10 +266,19 @@ export function AdminClient() {
     })
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
+      setTargetSaveStates((prev) => ({ ...prev, [userId]: "idle" }))
       setError(data.error ?? "Soll-Arbeitszeit konnte nicht gespeichert werden")
       return
     }
     await load()
+    if (targetSaveTimersRef.current[userId]) {
+      clearTimeout(targetSaveTimersRef.current[userId])
+    }
+    setTargetSaveStates((prev) => ({ ...prev, [userId]: "success" }))
+    targetSaveTimersRef.current[userId] = setTimeout(() => {
+      setTargetSaveStates((prev) => ({ ...prev, [userId]: "idle" }))
+      delete targetSaveTimersRef.current[userId]
+    }, 1000)
   }
 
   const minutesToHours = (minutes: number) => (minutes / 60).toFixed(2)
@@ -248,6 +293,10 @@ export function AdminClient() {
         <div className="grid gap-3">
           {users.map((user) => (
             <div key={user.id} className="border border-sand rounded-2xl p-4">
+              {(() => {
+                const targetSaveState = targetSaveStates[user.id] ?? "idle"
+                return (
+                  <>
               <div className="font-medium">{user.name}</div>
               <div className="text-sm text-[#6b5e51]">{user.email}</div>
               <div className="mt-2 flex items-center gap-2 text-xs text-[#6b5e51]">
@@ -326,11 +375,42 @@ export function AdminClient() {
                   })}
                 </div>
                 <div className="flex justify-end">
-                  <button className="btn btn-ghost px-3 py-1 text-[11px]" type="submit">
-                    Sollzeit speichern
+                  <button
+                    className={`btn px-3 py-1 text-[11px] ${
+                      targetSaveState === "success" ? "btn-ghost text-accent border-accent" : "btn-ghost"
+                    }`}
+                    type="submit"
+                    disabled={targetSaveState === "saving"}
+                    aria-busy={targetSaveState === "saving"}
+                  >
+                    {targetSaveState === "saving" ? "Speichert..." : null}
+                    {targetSaveState === "success" ? (
+                      <span className="inline-flex items-center gap-1">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M9.86338 18.0001C9.58738 18.0001 9.32338 17.8861 9.13438 17.6851L4.27138 12.5061C3.89238 12.1041 3.91338 11.4711 4.31538 11.0931C4.71838 10.7151 5.35138 10.7351 5.72838 11.1371L9.85338 15.5281L18.2614 6.32611C18.6354 5.91711 19.2674 5.89011 19.6754 6.26211C20.0824 6.63411 20.1104 7.26711 19.7384 7.67411L10.6014 17.6741C10.4144 17.8801 10.1484 17.9981 9.87038 18.0001H9.86338Z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                        Gespeichert
+                      </span>
+                    ) : null}
+                    {targetSaveState === "idle" ? "Sollzeit speichern" : null}
                   </button>
+                  <span className="sr-only" aria-live="polite">
+                    {targetSaveState === "saving"
+                      ? "Speichert"
+                      : targetSaveState === "success"
+                        ? "Gespeichert"
+                        : ""}
+                  </span>
                 </div>
               </form>
+                  </>
+                )
+              })()}
             </div>
           ))}
         </div>
@@ -599,9 +679,37 @@ export function AdminClient() {
               <input className="input" name="adjustedDays" type="number" defaultValue={0} />
             </label>
           </div>
-          <button className="btn btn-primary w-fit" type="submit">
-            Speichern
+          <button
+            className={`btn w-fit ${
+              allowanceSaveState === "success" ? "btn-ghost text-accent border-accent" : "btn-primary"
+            }`}
+            type="submit"
+            disabled={allowanceSaveState === "saving"}
+            aria-busy={allowanceSaveState === "saving"}
+          >
+            {allowanceSaveState === "saving" ? "Speichert..." : null}
+            {allowanceSaveState === "success" ? (
+              <span className="inline-flex items-center gap-1">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    d="M9.86338 18.0001C9.58738 18.0001 9.32338 17.8861 9.13438 17.6851L4.27138 12.5061C3.89238 12.1041 3.91338 11.4711 4.31538 11.0931C4.71838 10.7151 5.35138 10.7351 5.72838 11.1371L9.85338 15.5281L18.2614 6.32611C18.6354 5.91711 19.2674 5.89011 19.6754 6.26211C20.0824 6.63411 20.1104 7.26711 19.7384 7.67411L10.6014 17.6741C10.4144 17.8801 10.1484 17.9981 9.87038 18.0001H9.86338Z"
+                    fill="currentColor"
+                  />
+                </svg>
+                Gespeichert
+              </span>
+            ) : null}
+            {allowanceSaveState === "idle" ? "Speichern" : null}
           </button>
+          <span className="sr-only" aria-live="polite">
+            {allowanceSaveState === "saving"
+              ? "Speichert"
+              : allowanceSaveState === "success"
+                ? "Gespeichert"
+                : ""}
+          </span>
         </form>
       </div>
     </div>
