@@ -22,7 +22,5 @@ export const leaveEntrySchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   halfDayStart: z.boolean().optional().default(false),
-  halfDayEnd: z.boolean().optional().default(false),
-  note: z.string().max(500).optional().default(""),
-  privateNote: z.string().max(500).optional().default("")
+  halfDayEnd: z.boolean().optional().default(false)
 })

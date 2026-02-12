@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
           endDate: true,
           halfDayStart: true,
           halfDayEnd: true,
-          note: true,
           user: { select: { id: true, name: true } }
         },
         orderBy: { startDate: "asc" }
@@ -52,7 +51,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { startDate, endDate, halfDayStart, halfDayEnd, note, privateNote } = parsed.data
+    const { startDate, endDate, halfDayStart, halfDayEnd } = parsed.data
     if (endDate < startDate) {
       return NextResponse.json({ error: "Ende vor Start" }, { status: 400 })
     }
@@ -66,9 +65,7 @@ export async function POST(request: NextRequest) {
         startDate,
         endDate,
         halfDayStart,
-        halfDayEnd,
-        note,
-        privateNote
+        halfDayEnd
       }
     })
 
@@ -88,7 +85,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
     }
 
-    const { startDate, endDate, halfDayStart, halfDayEnd, note, privateNote } = parsed.data
+    const { startDate, endDate, halfDayStart, halfDayEnd } = parsed.data
     if (endDate < startDate) {
       return NextResponse.json({ error: "Ende vor Start" }, { status: 400 })
     }
@@ -103,7 +100,7 @@ export async function PATCH(request: NextRequest) {
 
     const entry = await prisma.leaveEntry.update({
       where: { id },
-      data: { startDate, endDate, halfDayStart, halfDayEnd, note, privateNote }
+      data: { startDate, endDate, halfDayStart, halfDayEnd }
     })
 
     return NextResponse.json({ entry })

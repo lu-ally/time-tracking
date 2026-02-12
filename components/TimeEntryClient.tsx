@@ -371,6 +371,10 @@ export function TimeEntryClient({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="font-display text-lg">
+                    {new Intl.DateTimeFormat("de-DE", { weekday: "short", timeZone: BERLIN_TZ })
+                      .format(dayDate)
+                      .replace(".", "")}
+                    {", "}
                     {formatInTimeZone(dayDate, BERLIN_TZ, "dd.MM.yyyy")}
                   </div>
                 {holiday ? (

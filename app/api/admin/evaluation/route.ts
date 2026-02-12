@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { addDays, endOfMonth } from "date-fns"
+import { addDays } from "date-fns"
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz"
 import { apiError, requireAdmin } from "../../../../lib/auth"
 import { workMinutes } from "../../../../lib/calculations"
@@ -11,7 +11,6 @@ type TargetUser = {
   id: string
   name: string
   email: string
-  createdAt: Date
   holidayState: string
   targetMinutesMon: number
   targetMinutesTue: number
@@ -45,6 +44,14 @@ function targetForWeekday(user: TargetUser, weekday: number) {
   return map[weekday]
 }
 
+function maxDateKey(a: string, b: string) {
+  return a >= b ? a : b
+}
+
+function minDateKey(a: string, b: string) {
+  return a <= b ? a : b
+}
+
 const holidayCache = new Map<string, Set<string>>()
 
 async function getHolidaySet(state: string, year: number) {
@@ -58,17 +65,21 @@ async function getHolidaySet(state: string, year: number) {
   return holidaySet
 }
 
-async function computeTargetBetween(user: TargetUser, start: Date, end: Date) {
-  let cursor = start
+async function computeTargetBetweenKeys(user: TargetUser, startKey: string, endKey: string) {
+  if (startKey > endKey) return 0
+  let cursor = fromZonedTime(`${startKey}T12:00:00`, BERLIN_TZ)
   let target = 0
-  while (cursor <= end) {
+  while (true) {
     const dateKey = formatInTimeZone(cursor, BERLIN_TZ, "yyyy-MM-dd")
+    if (dateKey > endKey) break
     const year = Number(dateKey.slice(0, 4))
     const holidays = await getHolidaySet(user.holidayState, year)
     if (!holidays.has(dateKey)) {
-      target += targetForWeekday(user, cursor.getDay())
+      const weekday = Number(formatInTimeZone(cursor, BERLIN_TZ, "i")) % 7
+      target += targetForWeekday(user, weekday)
     }
-    cursor = addDays(cursor, 1)
+    const nextDayKey = formatInTimeZone(addDays(cursor, 1), BERLIN_TZ, "yyyy-MM-dd")
+    cursor = fromZonedTime(`${nextDayKey}T12:00:00`, BERLIN_TZ)
   }
   return target
 }
@@ -87,10 +98,12 @@ export async function GET(request: NextRequest) {
     const monthNumber = parsedMonth?.month ?? Number(formatInTimeZone(now, BERLIN_TZ, "MM"))
     const month = `${String(monthYear).padStart(4, "0")}-${String(monthNumber).padStart(2, "0")}`
 
-    const monthStart = fromZonedTime(`${month}-01T00:00:00`, BERLIN_TZ)
-    const monthEnd = endOfMonth(monthStart)
+    const monthStart = fromZonedTime(`${month}-01T12:00:00`, BERLIN_TZ)
+    const monthDays = new Date(monthYear, monthNumber, 0).getDate()
+    const monthEnd = fromZonedTime(`${month}-${String(monthDays).padStart(2, "0")}T12:00:00`, BERLIN_TZ)
     const monthStartKey = formatInTimeZone(monthStart, BERLIN_TZ, "yyyy-MM-dd")
     const monthEndKey = formatInTimeZone(monthEnd, BERLIN_TZ, "yyyy-MM-dd")
+    const todayKey = formatInTimeZone(now, BERLIN_TZ, "yyyy-MM-dd")
 
     const users = await prisma.user.findMany({
       orderBy: { name: "asc" },
@@ -98,7 +111,6 @@ export async function GET(request: NextRequest) {
         id: true,
         name: true,
         email: true,
-        createdAt: true,
         holidayState: true,
         targetMinutesMon: true,
         targetMinutesTue: true,
@@ -115,56 +127,89 @@ export async function GET(request: NextRequest) {
     }
 
     const userIds = users.map((user) => user.id)
+    const firstEntries = await prisma.timeEntry.groupBy({
+      by: ["userId"],
+      where: { userId: { in: userIds } },
+      _min: { date: true }
+    })
+    const firstEntryByUser = new Map<string, string>()
+    for (const row of firstEntries) {
+      if (row._min.date) {
+        firstEntryByUser.set(row.userId, row._min.date)
+      }
+    }
+
+    const firstEntryDates = Array.from(firstEntryByUser.values()).sort()
+    const globalFirstEntry = firstEntryDates[0] ?? null
+    const monthGlobalEnd = minDateKey(monthEndKey, todayKey)
 
     const [monthEntries, totalEntries] = await Promise.all([
-      prisma.timeEntry.findMany({
-        where: {
-          userId: { in: userIds },
-          date: { gte: monthStartKey, lte: monthEndKey }
-        },
-        select: {
-          userId: true,
-          startMinutes: true,
-          endMinutes: true,
-          breakMinutes: true
-        }
-      }),
-      prisma.timeEntry.findMany({
-        where: {
-          userId: { in: userIds },
-          date: { lte: monthEndKey }
-        },
-        select: {
-          userId: true,
-          startMinutes: true,
-          endMinutes: true,
-          breakMinutes: true
-        }
-      })
+      monthStartKey <= monthGlobalEnd
+        ? prisma.timeEntry.findMany({
+            where: {
+              userId: { in: userIds },
+              date: { gte: monthStartKey, lte: monthGlobalEnd }
+            },
+            select: {
+              userId: true,
+              date: true,
+              startMinutes: true,
+              endMinutes: true,
+              breakMinutes: true
+            }
+          })
+        : Promise.resolve([]),
+      globalFirstEntry
+        ? prisma.timeEntry.findMany({
+            where: {
+              userId: { in: userIds },
+              date: { gte: globalFirstEntry, lte: todayKey }
+            },
+            select: {
+              userId: true,
+              date: true,
+              startMinutes: true,
+              endMinutes: true,
+              breakMinutes: true
+            }
+          })
+        : Promise.resolve([])
     ])
-
-    const monthActualByUser = new Map<string, number>()
-    for (const entry of monthEntries) {
-      monthActualByUser.set(entry.userId, (monthActualByUser.get(entry.userId) ?? 0) + workMinutes(entry))
-    }
-
-    const totalActualByUser = new Map<string, number>()
-    for (const entry of totalEntries) {
-      totalActualByUser.set(entry.userId, (totalActualByUser.get(entry.userId) ?? 0) + workMinutes(entry))
-    }
 
     const rows = await Promise.all(
       users.map(async (user) => {
-        const monthTarget = await computeTargetBetween(user, monthStart, monthEnd)
-        const userStartDate = fromZonedTime(
-          `${formatInTimeZone(user.createdAt, BERLIN_TZ, "yyyy-MM-dd")}T00:00:00`,
-          BERLIN_TZ
-        )
-        const totalTarget =
-          userStartDate <= monthEnd ? await computeTargetBetween(user, userStartDate, monthEnd) : 0
+        const effectiveStartDate = firstEntryByUser.get(user.id) ?? null
+        const monthRangeStart = effectiveStartDate
+          ? maxDateKey(monthStartKey, effectiveStartDate)
+          : null
+        const monthRangeEnd = monthRangeStart ? minDateKey(monthEndKey, todayKey) : null
+        const hasMonthWindow = Boolean(monthRangeStart && monthRangeEnd && monthRangeStart <= monthRangeEnd)
 
-        const monthActual = monthActualByUser.get(user.id) ?? 0
-        const totalActual = totalActualByUser.get(user.id) ?? 0
+        let monthActual = 0
+        if (hasMonthWindow) {
+          for (const entry of monthEntries) {
+            if (entry.userId !== user.id) continue
+            if (entry.date < monthRangeStart! || entry.date > monthRangeEnd!) continue
+            monthActual += workMinutes(entry)
+          }
+        }
+
+        let totalActual = 0
+        if (effectiveStartDate && effectiveStartDate <= todayKey) {
+          for (const entry of totalEntries) {
+            if (entry.userId !== user.id) continue
+            if (entry.date < effectiveStartDate || entry.date > todayKey) continue
+            totalActual += workMinutes(entry)
+          }
+        }
+
+        const monthTarget = hasMonthWindow
+          ? await computeTargetBetweenKeys(user, monthRangeStart!, monthRangeEnd!)
+          : 0
+        const totalTarget =
+          effectiveStartDate && effectiveStartDate <= todayKey
+            ? await computeTargetBetweenKeys(user, effectiveStartDate, todayKey)
+            : 0
 
         return {
           userId: user.id,
@@ -172,7 +217,10 @@ export async function GET(request: NextRequest) {
           email: user.email,
           recordedMinutesMonth: monthActual,
           saldoMinutesMonth: monthActual - monthTarget,
-          saldoMinutesTotal: totalActual - totalTarget
+          saldoMinutesTotal: totalActual - totalTarget,
+          effectiveStartDate,
+          monthRangeStart: hasMonthWindow ? monthRangeStart : null,
+          monthRangeEnd: hasMonthWindow ? monthRangeEnd : null
         }
       })
     )

@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
           minutesToTime(entry.endMinutes),
           entry.breakMinutes,
           minutesToTime(total),
-          `"${entry.note.replace(/"/g, '""')}"`
+          `"${(/^[=+\-@\t\r]/.test(entry.note) ? "'" : "") + entry.note.replace(/"/g, '""')}"`
         ].join(",")
       )
     }

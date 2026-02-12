@@ -60,8 +60,6 @@ model LeaveEntry {
   endDate      String
   halfDayStart Boolean  @default(false)
   halfDayEnd   Boolean  @default(false)
-  note         String   @default("")
-  privateNote  String   @default("")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

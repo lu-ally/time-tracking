@@ -22,8 +22,6 @@ export type LeaveEntry = {
   endDate: string
   halfDayStart: boolean
   halfDayEnd: boolean
-  note: string
-  privateNote: string
   user?: { id: string; name: string }
 }
 
@@ -192,9 +190,7 @@ export function LeaveClient({
       startDate: String(formData.get("startDate")),
       endDate: String(formData.get("endDate")),
       halfDayStart: Boolean(formData.get("halfDayStart")),
-      halfDayEnd: Boolean(formData.get("halfDayEnd")),
-      note: String(formData.get("note") ?? ""),
-      privateNote: String(formData.get("privateNote") ?? "")
+      halfDayEnd: Boolean(formData.get("halfDayEnd"))
     }
 
     const response = await fetch("/api/leave", {
@@ -443,9 +439,7 @@ export function LeaveClient({
                     startDate: modalStart,
                     endDate: modalEnd,
                     halfDayStart: Boolean(new FormData(event.currentTarget).get("halfDayStart")),
-                    halfDayEnd: Boolean(new FormData(event.currentTarget).get("halfDayEnd")),
-                    note: String(new FormData(event.currentTarget).get("note") ?? ""),
-                    privateNote: String(new FormData(event.currentTarget).get("privateNote") ?? "")
+                    halfDayEnd: Boolean(new FormData(event.currentTarget).get("halfDayEnd"))
                   })
                 })
                 if (!response.ok) {
@@ -587,24 +581,6 @@ export function LeaveClient({
                 Ende halbtägig
               </label>
             </div>
-            <label className="flex flex-col gap-2">
-              <span className="label">Notiz (teamweit sichtbar)</span>
-              <input
-                key={`note-${editingEntry?.id ?? "new"}`}
-                className="input"
-                name="note"
-                defaultValue={editingEntry?.note ?? ""}
-              />
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className="label">Private Notiz</span>
-              <input
-                key={`privateNote-${editingEntry?.id ?? "new"}`}
-                className="input"
-                name="privateNote"
-                defaultValue={editingEntry?.privateNote ?? ""}
-              />
-            </label>
             <div className="flex justify-between gap-2">
               {editingEntry ? (
                 <button

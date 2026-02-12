@@ -14,6 +14,8 @@ export async function POST(request: NextRequest) {
 
   const user = await prisma.user.findUnique({ where: { email } })
   if (!user) {
+    // Run bcrypt compare against a dummy hash to prevent timing-based email enumeration
+    await verifyPassword(password, "$2a$12$CboeUi96BVsxYqUTW2lmRefXbu5qeweAf4opLsdjl4BNfqBtbHMw2")
     return NextResponse.redirect(new URL("/login?error=invalid", request.url))
   }
 
