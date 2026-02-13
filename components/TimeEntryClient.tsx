@@ -374,6 +374,9 @@ export function TimeEntryClient({
         {days.map((day) => {
           const saveState = saveStates[day] ?? "idle"
           const entry = entryMap.get(day)
+          const entryFormKey = entry
+            ? `${day}-${entry.id}-${entry.startMinutes}-${entry.endMinutes}-${entry.breakMinutes}-${entry.note}`
+            : `${day}-empty`
           const total = entry ? workMinutes(entry) : 0
           const dayDate = fromZonedTime(`${day}T00:00:00`, BERLIN_TZ)
           const holiday = holidayMap.get(day)
@@ -425,7 +428,11 @@ export function TimeEntryClient({
                   ) : null}
                 </div>
               </div>
-              <form className="grid gap-3" onSubmit={(event) => handleSave(event, day)}>
+              <form
+                key={entryFormKey}
+                className="grid gap-3"
+                onSubmit={(event) => handleSave(event, day)}
+              >
                 <div className="grid gap-3 md:grid-cols-3">
                   <label className="flex flex-col gap-2">
                     <span className="label">Start</span>
