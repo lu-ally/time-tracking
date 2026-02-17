@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
 import { apiError, requireUser } from "../../../../lib/auth"
 import { prisma } from "../../../../lib/db"
-import { addDays, format } from "date-fns"
-import { parseBerlinDate } from "../../../../lib/time"
+import { addDays } from "date-fns"
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz"
+import { BERLIN_TZ } from "../../../../lib/time"
 
 export async function POST(request: NextRequest) {
   try {
     const user = await requireUser()
     const body = await request.json()
     const date = String(body.date ?? "")
-    if (!/\d{4}-\d{2}-\d{2}/.test(date)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json({ error: "Invalid date" }, { status: 400 })
     }
 
-    const yesterday = format(addDays(parseBerlinDate(date), -1), "yyyy-MM-dd")
+    // Use Berlin noon anchor to avoid local-time/UTC day shifts.
+    const yesterday = formatInTimeZone(
+      addDays(fromZonedTime(`${date}T12:00:00`, BERLIN_TZ), -1),
+      BERLIN_TZ,
+      "yyyy-MM-dd"
+    )
     const prev = await prisma.timeEntry.findUnique({
       where: { userId_date: { userId: user.id, date: yesterday } }
     })
