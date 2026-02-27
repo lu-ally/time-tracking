@@ -45,6 +45,8 @@ export function LeaveClient({
   const [showModal, setShowModal] = useState(false)
   const [modalStart, setModalStart] = useState(initialDate)
   const [modalEnd, setModalEnd] = useState(initialDate)
+  const [modalHalfDayStart, setModalHalfDayStart] = useState(false)
+  const [modalHalfDayEnd, setModalHalfDayEnd] = useState(false)
   const [editingEntry, setEditingEntry] = useState<LeaveEntry | null>(null)
   const [popoverDay, setPopoverDay] = useState<string | null>(null)
   const [rangeSelecting, setRangeSelecting] = useState(false)
@@ -76,9 +78,16 @@ export function LeaveClient({
   useEffect(() => {
     if (!dialogRef.current) return
     if (showModal) {
-      if (!editingEntry) {
+      if (editingEntry) {
+        setModalStart(editingEntry.startDate)
+        setModalEnd(editingEntry.endDate)
+        setModalHalfDayStart(editingEntry.halfDayStart)
+        setModalHalfDayEnd(editingEntry.halfDayEnd)
+      } else {
         setModalStart(date)
         setModalEnd(date)
+        setModalHalfDayStart(false)
+        setModalHalfDayEnd(false)
       }
       setRangeSelecting(false)
       setPickerMonth(date)
@@ -188,15 +197,13 @@ export function LeaveClient({
     return map
   }, [filteredTeam])
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const handleSubmit = async () => {
     setError(null)
-    const formData = new FormData(event.currentTarget)
     const payload = {
-      startDate: String(formData.get("startDate")),
-      endDate: String(formData.get("endDate")),
-      halfDayStart: Boolean(formData.get("halfDayStart")),
-      halfDayEnd: Boolean(formData.get("halfDayEnd"))
+      startDate: modalStart,
+      endDate: modalEnd,
+      halfDayStart: modalHalfDayStart,
+      halfDayEnd: modalHalfDayEnd
     }
 
     const response = await fetch("/api/leave", {
@@ -212,6 +219,10 @@ export function LeaveClient({
 
     await load()
   }
+
+  const previewUsedDays = useMemo(() => {
+    return leaveDaysUsed(modalStart, modalEnd, modalHalfDayStart, modalHalfDayEnd, holidays)
+  }, [modalStart, modalEnd, modalHalfDayStart, modalHalfDayEnd, holidays])
 
   const conflictDates = useMemo(() => {
     const map = new Map<string, number>()
@@ -444,8 +455,8 @@ export function LeaveClient({
                     id: editingEntry.id,
                     startDate: modalStart,
                     endDate: modalEnd,
-                    halfDayStart: Boolean(new FormData(event.currentTarget).get("halfDayStart")),
-                    halfDayEnd: Boolean(new FormData(event.currentTarget).get("halfDayEnd"))
+                    halfDayStart: modalHalfDayStart,
+                    halfDayEnd: modalHalfDayEnd
                   })
                 })
                 if (!response.ok) {
@@ -454,7 +465,7 @@ export function LeaveClient({
                   return
                 }
               } else {
-                await handleSubmit(event)
+                await handleSubmit()
               }
               setEditingEntry(null)
               setShowModal(false)
@@ -570,22 +581,25 @@ export function LeaveClient({
             <div className="flex flex-wrap gap-4">
               <label className="flex items-center gap-2 text-sm">
                 <input
-                  key={`halfDayStart-${editingEntry?.id ?? "new"}`}
                   type="checkbox"
                   name="halfDayStart"
-                  defaultChecked={editingEntry?.halfDayStart ?? false}
+                  checked={modalHalfDayStart}
+                  onChange={(event) => setModalHalfDayStart(event.target.checked)}
                 />
                 Start halbtägig
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
-                  key={`halfDayEnd-${editingEntry?.id ?? "new"}`}
                   type="checkbox"
                   name="halfDayEnd"
-                  defaultChecked={editingEntry?.halfDayEnd ?? false}
+                  checked={modalHalfDayEnd}
+                  onChange={(event) => setModalHalfDayEnd(event.target.checked)}
                 />
                 Ende halbtägig
               </label>
+            </div>
+            <div className="text-sm text-[#6b5e51]">
+              Verbrauch für diesen Eintrag: <span className="font-semibold text-ink">{formatDays(previewUsedDays)} Tage</span>
             </div>
             <div className="flex justify-between gap-2">
               {editingEntry ? (

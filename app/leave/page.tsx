@@ -67,11 +67,9 @@ export default async function LeavePage({
       )
     : 0
 
-  const allowanceBase =
-    (allowanceRecord?.annualDays ?? 30) +
-    (allowanceRecord?.carryOverDays ?? 0) +
-    (allowanceRecord?.adjustedDays ?? 0) +
-    previousYearCarryOver
+  const allowanceBase = allowanceRecord
+    ? allowanceRecord.annualDays + allowanceRecord.carryOverDays + allowanceRecord.adjustedDays
+    : 30 + previousYearCarryOver
 
   const used = entries.reduce((sum, entry) => {
     return (

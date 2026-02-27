@@ -1,6 +1,6 @@
 import { addDays } from "date-fns"
 import { formatInTimeZone } from "date-fns-tz"
-import { Holiday, isHoliday } from "./holidays"
+import { Holiday, holidayReduction } from "./holidays"
 import { BERLIN_TZ, parseBerlinDate } from "./time"
 
 export function workMinutes(entry: {
@@ -27,9 +27,8 @@ export function leaveDaysUsed(
     const dateString = formatInTimeZone(day, BERLIN_TZ, "yyyy-MM-dd")
     const weekday = day.getDay()
     const isWeekend = weekday === 0 || weekday === 6
-    const holiday = isHoliday(dateString, holidays)
-    if (!isWeekend && !holiday) {
-      let increment = 1
+    if (!isWeekend) {
+      let increment = 1 - holidayReduction(dateString, holidays)
       if (dateString === startDate && halfDayStart) increment -= 0.5
       if (dateString === endDate && halfDayEnd) increment -= 0.5
       count += increment

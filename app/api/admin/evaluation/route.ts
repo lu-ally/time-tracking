@@ -5,6 +5,7 @@ import { apiError, requireAdmin } from "../../../../lib/auth"
 import { workMinutes } from "../../../../lib/calculations"
 import { prisma } from "../../../../lib/db"
 import { getHolidaysForYear } from "../../../../lib/holidaysRepo"
+import { holidayReduction } from "../../../../lib/holidays"
 import { BERLIN_TZ } from "../../../../lib/time"
 
 type TargetUser = {
@@ -52,7 +53,7 @@ function minDateKey(a: string, b: string) {
   return a <= b ? a : b
 }
 
-const holidayCache = new Map<string, Set<string>>()
+const holidayCache = new Map<string, Map<string, number>>()
 
 async function getHolidaySet(state: string, year: number) {
   const key = `${state}-${year}`
@@ -60,7 +61,9 @@ async function getHolidaySet(state: string, year: number) {
     return holidayCache.get(key)!
   }
   const holidays = await getHolidaysForYear(year, state)
-  const holidaySet = new Set(holidays.map((holiday) => holiday.date))
+  const holidaySet = new Map<string, number>(
+    holidays.map((holiday) => [holiday.date, holidayReduction(holiday.date, [holiday])])
+  )
   holidayCache.set(key, holidaySet)
   return holidaySet
 }
@@ -74,10 +77,9 @@ async function computeTargetBetweenKeys(user: TargetUser, startKey: string, endK
     if (dateKey > endKey) break
     const year = Number(dateKey.slice(0, 4))
     const holidays = await getHolidaySet(user.holidayState, year)
-    if (!holidays.has(dateKey)) {
-      const weekday = Number(formatInTimeZone(cursor, BERLIN_TZ, "i")) % 7
-      target += targetForWeekday(user, weekday)
-    }
+    const weekday = Number(formatInTimeZone(cursor, BERLIN_TZ, "i")) % 7
+    const reduction = holidays.get(dateKey) ?? 0
+    target += targetForWeekday(user, weekday) * (1 - reduction)
     const nextDayKey = formatInTimeZone(addDays(cursor, 1), BERLIN_TZ, "yyyy-MM-dd")
     cursor = fromZonedTime(`${nextDayKey}T12:00:00`, BERLIN_TZ)
   }

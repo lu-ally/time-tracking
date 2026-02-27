@@ -8,6 +8,8 @@ export type Holiday = {
   state: "HH"
 }
 
+const HALF_DAY_HOLIDAY_MM_DD = new Set(["12-24", "12-31"])
+
 function easterSunday(year: number) {
   const a = year % 19
   const b = Math.floor(year / 100)
@@ -43,13 +45,21 @@ export function hamburgHolidays(year: number): Holiday[] {
     holiday(addDays(easter, 50), "Pfingstmontag"),
     holiday(new Date(year, 9, 3), "Tag der Deutschen Einheit"),
     holiday(new Date(year, 9, 31), "Reformationstag"),
+    holiday(new Date(year, 11, 24), "Heiligabend (halbtägig)"),
     holiday(new Date(year, 11, 25), "1. Weihnachtstag"),
-    holiday(new Date(year, 11, 26), "2. Weihnachtstag")
+    holiday(new Date(year, 11, 26), "2. Weihnachtstag"),
+    holiday(new Date(year, 11, 31), "Silvester (halbtägig)")
   ]
 }
 
 export function isHoliday(dateString: string, holidays: Holiday[]) {
   return holidays.some((h) => h.date === dateString)
+}
+
+export function holidayReduction(dateString: string, holidays: Holiday[]) {
+  if (!isHoliday(dateString, holidays)) return 0
+  const mmdd = dateString.slice(5)
+  return HALF_DAY_HOLIDAY_MM_DD.has(mmdd) ? 0.5 : 1
 }
 
 export function holidayName(dateString: string, holidays: Holiday[]) {
@@ -69,8 +79,8 @@ export function countWeekdaysExcludingHolidays(
     const dayString = formatInTimeZone(day, BERLIN_TZ, "yyyy-MM-dd")
     const weekday = day.getDay()
     const isWeekend = weekday === 0 || weekday === 6
-    if (!isWeekend && !isHoliday(dayString, holidays)) {
-      count += 1
+    if (!isWeekend) {
+      count += 1 - holidayReduction(dayString, holidays)
     }
     day = addDays(day, 1)
   }

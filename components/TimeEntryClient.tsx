@@ -14,7 +14,7 @@ import {
 } from "date-fns"
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz"
 import { BERLIN_TZ, minutesToTime, weekDates } from "../lib/time"
-import { Holiday } from "../lib/holidays"
+import { Holiday, holidayReduction } from "../lib/holidays"
 import { workMinutes } from "../lib/calculations"
 
 export type TimeEntry = {
@@ -260,7 +260,7 @@ export function TimeEntryClient({
   }
 
   const holidayMap = useMemo(() => {
-    return new Map(holidays.map((h) => [h.date, h.name]))
+    return new Map(holidays.map((h) => [h.date, h]))
   }, [holidays])
 
   const moveRange = (direction: "prev" | "next") => {
@@ -281,7 +281,8 @@ export function TimeEntryClient({
       const total = entry ? workMinutes(entry) : 0
       const dayDate = fromZonedTime(`${day}T00:00:00`, BERLIN_TZ)
       const holiday = holidayMap.get(day)
-      const target = holiday ? 0 : targetForWeekday(dayDate.getDay())
+      const reduction = holiday ? holidayReduction(day, [holiday]) : 0
+      const target = targetForWeekday(dayDate.getDay()) * (1 - reduction)
       return sum + (total - target)
     }, 0)
   }, [saldoDays, entryMap, holidayMap, targetForWeekday])
@@ -380,7 +381,8 @@ export function TimeEntryClient({
           const total = entry ? workMinutes(entry) : 0
           const dayDate = fromZonedTime(`${day}T00:00:00`, BERLIN_TZ)
           const holiday = holidayMap.get(day)
-          const target = holiday ? 0 : targetForWeekday(dayDate.getDay())
+          const reduction = holiday ? holidayReduction(day, [holiday]) : 0
+          const target = targetForWeekday(dayDate.getDay()) * (1 - reduction)
           const diff = total - target
           return (
             <div
@@ -399,7 +401,7 @@ export function TimeEntryClient({
                     {formatInTimeZone(dayDate, BERLIN_TZ, "dd.MM.yyyy")}
                   </div>
                 {holiday ? (
-                  <div className="text-sm text-[#6b5e51]">{`Feiertag: ${holiday}`}</div>
+                  <div className="text-sm text-[#6b5e51]">{`Feiertag: ${holiday.name}`}</div>
                 ) : null}
                 </div>
                 <div className="flex items-center gap-2">

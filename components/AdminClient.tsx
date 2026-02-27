@@ -42,6 +42,14 @@ export function AdminClient() {
   const [resetConfirm, setResetConfirm] = useState("")
   const [targetSaveStates, setTargetSaveStates] = useState<Record<string, SaveState>>({})
   const [allowanceSaveState, setAllowanceSaveState] = useState<SaveState>("idle")
+  const [allowanceForm, setAllowanceForm] = useState({
+    userId: "",
+    year: String(new Date().getFullYear()),
+    annualDays: "30",
+    carryOverDays: "0",
+    adjustedDays: "0"
+  })
+  const [allowanceLoading, setAllowanceLoading] = useState(false)
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const deleteDialogRef = useRef<HTMLDialogElement | null>(null)
   const resetDialogRef = useRef<HTMLDialogElement | null>(null)
@@ -66,6 +74,14 @@ export function AdminClient() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (users.length === 0) return
+    setAllowanceForm((prev) => {
+      if (prev.userId) return prev
+      return { ...prev, userId: users[0].id }
+    })
+  }, [users])
 
   useEffect(() => {
     if (!dialogRef.current) return
@@ -107,23 +123,52 @@ export function AdminClient() {
     }
   }, [])
 
+  const loadAllowance = useCallback(async (userId: string, year: string) => {
+    if (!userId || !/^\d{4}$/.test(year)) return
+    setAllowanceLoading(true)
+    const response = await fetch(`/api/admin/allowance?userId=${userId}&year=${year}`, {
+      cache: "no-store"
+    })
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      setError(data.error ?? "Urlaubskontingent konnte nicht geladen werden")
+      setAllowanceLoading(false)
+      return
+    }
+    const data = await response.json()
+    const allowance = data.allowance ?? null
+    if (allowance) {
+      setAllowanceForm((prev) => ({
+        ...prev,
+        annualDays: String(allowance.annualDays ?? 30),
+        carryOverDays: String(allowance.carryOverDays ?? 0),
+        adjustedDays: String(allowance.adjustedDays ?? 0)
+      }))
+      setError(null)
+    }
+    setAllowanceLoading(false)
+  }, [])
+
+  useEffect(() => {
+    void loadAllowance(allowanceForm.userId, allowanceForm.year)
+  }, [allowanceForm.userId, allowanceForm.year, loadAllowance])
+
   const updateAllowance = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
     setAllowanceSaveState("saving")
-    const formData = new FormData(event.currentTarget)
-    const parseDayValue = (key: string) => {
-      const raw = String(formData.get(key) ?? "0").trim().replace(",", ".")
+    const parseDayValue = (rawInput: string) => {
+      const raw = rawInput.trim().replace(",", ".")
       const parsed = Number(raw)
       if (!Number.isFinite(parsed)) return NaN
       return Math.round(parsed * 100) / 100
     }
     const payload = {
-      userId: String(formData.get("userId")),
-      year: Number(formData.get("year")),
-      annualDays: parseDayValue("annualDays"),
-      carryOverDays: parseDayValue("carryOverDays"),
-      adjustedDays: parseDayValue("adjustedDays")
+      userId: allowanceForm.userId,
+      year: Number(allowanceForm.year),
+      annualDays: parseDayValue(allowanceForm.annualDays),
+      carryOverDays: parseDayValue(allowanceForm.carryOverDays),
+      adjustedDays: parseDayValue(allowanceForm.adjustedDays)
     }
 
     const response = await fetch("/api/admin/allowance", {
@@ -138,6 +183,7 @@ export function AdminClient() {
       return
     }
     await load()
+    await loadAllowance(allowanceForm.userId, allowanceForm.year)
     if (allowanceSaveTimerRef.current) {
       clearTimeout(allowanceSaveTimerRef.current)
     }
@@ -660,7 +706,15 @@ export function AdminClient() {
         <form className="grid gap-4" onSubmit={updateAllowance}>
           <label className="flex flex-col gap-2">
             <span className="label">User</span>
-            <select className="input" name="userId" required>
+            <select
+              className="input"
+              name="userId"
+              value={allowanceForm.userId}
+              onChange={(event) =>
+                setAllowanceForm((prev) => ({ ...prev, userId: event.target.value }))
+              }
+              required
+            >
               {users.map((user) => (
                 <option key={user.id} value={user.id}>
                   {user.name}
@@ -671,19 +725,56 @@ export function AdminClient() {
           <div className="grid gap-3 md:grid-cols-4">
             <label className="flex flex-col gap-2">
               <span className="label">Jahr</span>
-              <input className="input" name="year" type="number" defaultValue={new Date().getFullYear()} />
+              <input
+                className="input"
+                name="year"
+                type="number"
+                value={allowanceForm.year}
+                onChange={(event) =>
+                  setAllowanceForm((prev) => ({ ...prev, year: event.target.value }))
+                }
+              />
             </label>
             <label className="flex flex-col gap-2">
               <span className="label">Jahresurlaub</span>
-              <input className="input" name="annualDays" type="number" min={0} step="0.01" defaultValue={30} />
+              <input
+                className="input"
+                name="annualDays"
+                type="number"
+                min={0}
+                step="0.01"
+                value={allowanceForm.annualDays}
+                onChange={(event) =>
+                  setAllowanceForm((prev) => ({ ...prev, annualDays: event.target.value }))
+                }
+              />
             </label>
             <label className="flex flex-col gap-2">
               <span className="label">Resturlaub</span>
-              <input className="input" name="carryOverDays" type="number" min={0} step="0.01" defaultValue={0} />
+              <input
+                className="input"
+                name="carryOverDays"
+                type="number"
+                min={0}
+                step="0.01"
+                value={allowanceForm.carryOverDays}
+                onChange={(event) =>
+                  setAllowanceForm((prev) => ({ ...prev, carryOverDays: event.target.value }))
+                }
+              />
             </label>
             <label className="flex flex-col gap-2">
               <span className="label">Korrektur</span>
-              <input className="input" name="adjustedDays" type="number" step="0.01" defaultValue={0} />
+              <input
+                className="input"
+                name="adjustedDays"
+                type="number"
+                step="0.01"
+                value={allowanceForm.adjustedDays}
+                onChange={(event) =>
+                  setAllowanceForm((prev) => ({ ...prev, adjustedDays: event.target.value }))
+                }
+              />
             </label>
           </div>
           <button
@@ -691,7 +782,7 @@ export function AdminClient() {
               allowanceSaveState === "success" ? "btn-ghost text-accent border-accent" : "btn-primary"
             }`}
             type="submit"
-            disabled={allowanceSaveState === "saving"}
+            disabled={allowanceSaveState === "saving" || allowanceLoading}
             aria-busy={allowanceSaveState === "saving"}
           >
             {allowanceSaveState === "saving" ? "Speichert..." : null}
@@ -708,7 +799,7 @@ export function AdminClient() {
                 Gespeichert
               </span>
             ) : null}
-            {allowanceSaveState === "idle" ? "Speichern" : null}
+            {allowanceSaveState === "idle" ? (allowanceLoading ? "Lädt..." : "Speichern") : null}
           </button>
           <span className="sr-only" aria-live="polite">
             {allowanceSaveState === "saving"
