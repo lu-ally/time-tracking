@@ -380,6 +380,13 @@ export function TimeEntryClient({
             : `${day}-empty`
           const total = entry ? workMinutes(entry) : 0
           const dayDate = fromZonedTime(`${day}T00:00:00`, BERLIN_TZ)
+          const weekdayTargetMinutes = targetForWeekday(dayDate.getDay())
+          const defaultStartMinutes = 9 * 60
+          const defaultBreakMinutes = weekdayTargetMinutes < 240 ? 0 : 30
+          const defaultEndMinutes = Math.min(
+            defaultStartMinutes + Math.max(weekdayTargetMinutes, 0) + defaultBreakMinutes,
+            23 * 60 + 59
+          )
           const holiday = holidayMap.get(day)
           const reduction = holiday ? holidayReduction(day, [holiday]) : 0
           const target = targetForWeekday(dayDate.getDay()) * (1 - reduction)
@@ -442,7 +449,7 @@ export function TimeEntryClient({
                       className="input"
                       name="start"
                       type="time"
-                      defaultValue={entry ? minutesToTime(entry.startMinutes) : "09:00"}
+                      defaultValue={entry ? minutesToTime(entry.startMinutes) : minutesToTime(defaultStartMinutes)}
                       required
                     />
                   </label>
@@ -452,7 +459,7 @@ export function TimeEntryClient({
                       className="input"
                       name="end"
                       type="time"
-                      defaultValue={entry ? minutesToTime(entry.endMinutes) : "17:30"}
+                      defaultValue={entry ? minutesToTime(entry.endMinutes) : minutesToTime(defaultEndMinutes)}
                       required
                     />
                   </label>
@@ -463,7 +470,7 @@ export function TimeEntryClient({
                       name="breakMinutes"
                       type="number"
                       min={0}
-                      defaultValue={entry ? entry.breakMinutes : 30}
+                      defaultValue={entry ? entry.breakMinutes : defaultBreakMinutes}
                     />
                   </label>
                 </div>
