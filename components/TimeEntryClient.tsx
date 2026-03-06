@@ -382,7 +382,7 @@ export function TimeEntryClient({
           const dayDate = fromZonedTime(`${day}T00:00:00`, BERLIN_TZ)
           const weekdayTargetMinutes = targetForWeekday(dayDate.getDay())
           const defaultStartMinutes = 9 * 60
-          const defaultBreakMinutes = weekdayTargetMinutes < 240 ? 0 : 30
+          const defaultBreakMinutes = weekdayTargetMinutes <= 240 ? 0 : 30
           const defaultEndMinutes = Math.min(
             defaultStartMinutes + Math.max(weekdayTargetMinutes, 0) + defaultBreakMinutes,
             23 * 60 + 59
