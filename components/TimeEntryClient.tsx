@@ -60,6 +60,7 @@ export function TimeEntryClient({
   const [error, setError] = useState<string | null>(null)
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({})
   const saveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const [gesamtsaldo, setGesamtsaldo] = useState<number | null>(null)
 
   const dateObj = useMemo(() => fromZonedTime(`${date}T00:00:00`, BERLIN_TZ), [date])
 
@@ -181,6 +182,17 @@ export function TimeEntryClient({
     load()
   }, [])
 
+  const reloadGesamtsaldo = useCallback(async () => {
+    const response = await fetch("/api/time/saldo")
+    if (!response.ok) return
+    const data = await response.json()
+    setGesamtsaldo(data.saldoMinutesTotal ?? 0)
+  }, [])
+
+  useEffect(() => {
+    reloadGesamtsaldo()
+  }, [])
+
   useEffect(() => {
     const timers = saveTimersRef.current
     return () => {
@@ -218,7 +230,7 @@ export function TimeEntryClient({
       setError(data.error ?? "Speichern fehlgeschlagen")
       return
     }
-    await reloadEntries(dataRange.start, dataRange.end)
+    await Promise.all([reloadEntries(dataRange.start, dataRange.end), reloadGesamtsaldo()])
     if (saveTimersRef.current[day]) {
       clearTimeout(saveTimersRef.current[day])
     }
@@ -241,7 +253,7 @@ export function TimeEntryClient({
       setError(data.error ?? "Kopieren fehlgeschlagen")
       return
     }
-    await reloadEntries(dataRange.start, dataRange.end)
+    await Promise.all([reloadEntries(dataRange.start, dataRange.end), reloadGesamtsaldo()])
   }
 
   const fillWeek = async () => {
@@ -256,7 +268,7 @@ export function TimeEntryClient({
       setError(data.error ?? "Woche auffüllen fehlgeschlagen")
       return
     }
-    await reloadEntries(dataRange.start, dataRange.end)
+    await Promise.all([reloadEntries(dataRange.start, dataRange.end), reloadGesamtsaldo()])
   }
 
   const holidayMap = useMemo(() => {
@@ -295,6 +307,16 @@ export function TimeEntryClient({
           <h2 className="font-display text-3xl">Zeiterfassung</h2>
         </div>
         <div className="flex items-center gap-3 text-sm text-[#6b5e51] flex-nowrap overflow-x-auto">
+          {gesamtsaldo !== null ? (
+            <>
+              <span>Gesamtsaldo:</span>
+              <span className={gesamtsaldo >= 0 ? "text-accent" : "text-ember"}>
+                {gesamtsaldo >= 0 ? "+" : ""}
+                {minutesToTime(Math.abs(gesamtsaldo))}
+              </span>
+              <span className="text-[#c8b9aa]">|</span>
+            </>
+          ) : null}
           <span>Saldo:</span>
           <span className={aggregatedSaldo >= 0 ? "text-accent" : "text-ember"}>
             {aggregatedSaldo >= 0 ? "+" : ""}
@@ -494,7 +516,7 @@ export function TimeEntryClient({
                         setError("Löschen fehlgeschlagen")
                         return
                       }
-                      await reloadEntries(dataRange.start, dataRange.end)
+                      await Promise.all([reloadEntries(dataRange.start, dataRange.end), reloadGesamtsaldo()])
                     }}
                     aria-label="Eintrag löschen"
                     title="Eintrag löschen"
