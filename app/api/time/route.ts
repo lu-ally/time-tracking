@@ -55,7 +55,8 @@ export async function POST(request: NextRequest) {
         startMinutes,
         endMinutes,
         breakMinutes,
-        note
+        note,
+        vacationEntry: false
       },
       create: {
         userId: user.id,

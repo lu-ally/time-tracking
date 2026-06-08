@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { apiError, requireUser } from "../../../lib/auth"
 import { prisma } from "../../../lib/db"
 import { leaveEntrySchema } from "../../../lib/validation"
+import { createVacationTimeEntries, deleteVacationTimeEntries } from "../../../lib/vacationEntries"
 
 export async function GET(request: NextRequest) {
   try {
@@ -69,6 +70,8 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    await createVacationTimeEntries(user.id, startDate, endDate, halfDayStart, halfDayEnd, user)
+
     return NextResponse.json({ entry })
   } catch (error) {
     return apiError(error)
@@ -98,10 +101,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
+    await deleteVacationTimeEntries(user.id, existing.startDate, existing.endDate)
+
     const entry = await prisma.leaveEntry.update({
       where: { id },
       data: { startDate, endDate, halfDayStart, halfDayEnd }
     })
+
+    await createVacationTimeEntries(user.id, startDate, endDate, halfDayStart, halfDayEnd, user)
 
     return NextResponse.json({ entry })
   } catch (error) {
@@ -123,6 +130,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
+    await deleteVacationTimeEntries(user.id, existing.startDate, existing.endDate)
     await prisma.leaveEntry.delete({ where: { id } })
     return NextResponse.json({ ok: true })
   } catch (error) {

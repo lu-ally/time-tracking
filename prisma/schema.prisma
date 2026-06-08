@@ -37,15 +37,16 @@ model User {
 }
 
 model TimeEntry {
-  id           String   @id @default(cuid())
-  userId       String
-  date         String
-  startMinutes Int
-  endMinutes   Int
-  breakMinutes Int
-  note         String   @default("")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String
+  date          String
+  startMinutes  Int
+  endMinutes    Int
+  breakMinutes  Int
+  note          String   @default("")
+  vacationEntry Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id])
 

@@ -26,6 +26,14 @@ export type TimeEntry = {
   note: string
 }
 
+type LeaveEntry = {
+  id: string
+  startDate: string
+  endDate: string
+  halfDayStart: boolean
+  halfDayEnd: boolean
+}
+
 type SaveState = "idle" | "saving" | "success"
 
 export function TimeEntryClient({
@@ -53,6 +61,7 @@ export function TimeEntryClient({
   const [view, setView] = useState<"day" | "week" | "month">("week")
   const [date, setDate] = useState(initialDate)
   const [entries, setEntries] = useState<TimeEntry[]>([])
+  const [leaveEntries, setLeaveEntries] = useState<LeaveEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [noteSuggestions, setNoteSuggestions] = useState<string[]>([])
   const [showWeekends, setShowWeekends] = useState(false)
@@ -154,13 +163,18 @@ export function TimeEntryClient({
   }, [saldoPeriodRange])
 
   const reloadEntries = async (start: string, end: string) => {
-    const response = await fetch(`/api/time?start=${start}&end=${end}`)
-    if (!response.ok) {
+    const [timeRes, leaveRes] = await Promise.all([
+      fetch(`/api/time?start=${start}&end=${end}`),
+      fetch(`/api/leave?start=${start}&end=${end}`)
+    ])
+    if (!timeRes.ok) {
       setError("Einträge konnten nicht geladen werden")
       return
     }
-    const data = await response.json()
-    setEntries(data.entries ?? [])
+    const timeData = await timeRes.json()
+    const leaveData = leaveRes.ok ? await leaveRes.json() : { entries: [] }
+    setEntries(timeData.entries ?? [])
+    setLeaveEntries(leaveData.entries ?? [])
     setError(null)
   }
 
@@ -274,6 +288,29 @@ export function TimeEntryClient({
   const holidayMap = useMemo(() => {
     return new Map(holidays.map((h) => [h.date, h]))
   }, [holidays])
+
+  const vacationDayMap = useMemo(() => {
+    const map = new Map<string, boolean>() // date → isHalfDay
+    for (const leave of leaveEntries) {
+      let cursor = fromZonedTime(`${leave.startDate}T12:00:00`, BERLIN_TZ)
+      const endCursor = fromZonedTime(`${leave.endDate}T12:00:00`, BERLIN_TZ)
+      while (cursor <= endCursor) {
+        const dateStr = formatInTimeZone(cursor, BERLIN_TZ, "yyyy-MM-dd")
+        const weekday = Number(formatInTimeZone(cursor, BERLIN_TZ, "i")) % 7
+        const isWeekend = weekday === 0 || weekday === 6
+        const h = holidayMap.get(dateStr)
+        const isFullHoliday = h ? holidayReduction(dateStr, [h]) >= 1.0 : false
+        if (!isWeekend && !isFullHoliday) {
+          const isHalf =
+            (dateStr === leave.startDate && leave.halfDayStart) ||
+            (dateStr === leave.endDate && leave.halfDayEnd)
+          map.set(dateStr, isHalf)
+        }
+        cursor = addDays(cursor, 1)
+      }
+    }
+    return map
+  }, [leaveEntries, holidayMap])
 
   const moveRange = (direction: "prev" | "next") => {
     const current = fromZonedTime(`${date}T00:00:00`, BERLIN_TZ)
@@ -412,6 +449,8 @@ export function TimeEntryClient({
           const holiday = holidayMap.get(day)
           const reduction = holiday ? holidayReduction(day, [holiday]) : 0
           const target = targetForWeekday(dayDate.getDay()) * (1 - reduction)
+          const vacationHalfDay = vacationDayMap.get(day)
+          const isVacation = vacationHalfDay !== undefined
           const diff = total - target
           return (
             <div
@@ -431,6 +470,9 @@ export function TimeEntryClient({
                   </div>
                 {holiday ? (
                   <div className="text-sm text-[#6b5e51]">{`Feiertag: ${holiday.name}`}</div>
+                ) : null}
+                {isVacation ? (
+                  <div className="text-sm text-[#6b5e51]">{vacationHalfDay ? "Urlaub (½)" : "Urlaub"}</div>
                 ) : null}
                 </div>
                 <div className="flex items-center gap-2">
