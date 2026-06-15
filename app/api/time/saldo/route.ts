@@ -44,10 +44,11 @@ export async function GET() {
 
     const entries = await prisma.timeEntry.findMany({
       where: { userId: user.id, date: { gte: effectiveStartDate, lte: todayKey } },
-      select: { startMinutes: true, endMinutes: true, breakMinutes: true }
+      select: { date: true, startMinutes: true, endMinutes: true, breakMinutes: true }
     })
 
     const totalActual = entries.reduce((sum, e) => sum + workMinutes(e), 0)
+    const hasTodayEntry = entries.some((e) => e.date === todayKey)
 
     const weekdayMap = [
       user.targetMinutesSun,
@@ -64,6 +65,7 @@ export async function GET() {
     while (true) {
       const dateKey = formatInTimeZone(cursor, BERLIN_TZ, "yyyy-MM-dd")
       if (dateKey > todayKey) break
+      if (dateKey === todayKey && !hasTodayEntry) break
       const year = Number(dateKey.slice(0, 4))
       const holidays = await getHolidaySet(user.holidayState, year)
       const weekday = Number(formatInTimeZone(cursor, BERLIN_TZ, "i")) % 7
