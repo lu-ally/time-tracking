@@ -333,6 +333,7 @@ export function LeaveClient({
               {monthGrid.map((day) => {
                 const key = formatInTimeZone(day, BERLIN_TZ, "yyyy-MM-dd")
                 const isCurrentMonth = formatInTimeZone(day, BERLIN_TZ, "MM") === date.slice(5, 7)
+                const isToday = key === initialDate
                 const dayEntries = entriesByDay.get(key) ?? []
                 const conflictCount = conflictDates.get(key) ?? 0
                 const holidayName = holidayMap.get(key)
@@ -341,11 +342,13 @@ export function LeaveClient({
                 return (
                   <div
                     key={key}
-                    className={`relative min-h-[90px] rounded-xl border border-sand p-2 ${
-                      isCurrentMonth ? "bg-white" : "bg-sand/40 text-[#6b5e51]"
-                    } ${holidayName ? "bg-emerald-50 border-emerald-200" : ""}`}
+                    className={`relative min-h-[90px] rounded-xl border p-2 ${
+                      isToday ? "border-accent ring-1 ring-accent/40" : "border-sand"
+                    } ${isCurrentMonth ? "bg-white" : "bg-sand/40 text-[#6b5e51]"} ${
+                      holidayName ? "bg-emerald-50 border-emerald-200" : ""
+                    }`}
                   >
-                    <div className="text-xs mb-1">
+                    <div className={`text-xs mb-1 ${isToday ? "font-bold text-accent" : ""}`}>
                       {formatInTimeZone(day, BERLIN_TZ, "dd.MM.yyyy")}
                     </div>
                     {holidayName ? (
@@ -537,6 +540,7 @@ export function LeaveClient({
                 const isCurrentMonth =
                   formatInTimeZone(day, BERLIN_TZ, "MM") ===
                   formatInTimeZone(fromZonedTime(`${pickerMonth}T00:00:00`, BERLIN_TZ), BERLIN_TZ, "MM")
+                const isToday = key === initialDate
                 const holidayName = holidayMap.get(key)
                 const isWeekend = day.getDay() === 0 || day.getDay() === 6
                 const inRange = isWithinInterval(day, {
@@ -549,13 +553,13 @@ export function LeaveClient({
                   <button
                     key={key}
                     type="button"
-                    className={`min-h-[44px] rounded-xl border border-sand p-1 text-[10px] text-left ${
-                      isCurrentMonth ? "bg-white" : "bg-sand/40 text-[#6b5e51]"
-                    } ${holidayName ? "bg-emerald-50 border-emerald-200" : ""} ${
-                      inRange ? "ring-2 ring-accent/40" : ""
-                    } ${isWeekend ? "opacity-60" : ""} ${
-                      isStart || isEnd ? "bg-accent/20 text-ink border-accent" : ""
-                    }`}
+                    className={`min-h-[44px] rounded-xl border p-1 text-[10px] text-left ${
+                      isToday ? "border-accent ring-1 ring-accent/40" : "border-sand"
+                    } ${isCurrentMonth ? "bg-white" : "bg-sand/40 text-[#6b5e51]"} ${
+                      holidayName ? "bg-emerald-50 border-emerald-200" : ""
+                    } ${inRange ? "ring-2 ring-accent/40" : ""} ${
+                      isWeekend ? "opacity-60" : ""
+                    } ${isStart || isEnd ? "bg-accent/20 text-ink border-accent" : ""}`}
                     onClick={() => {
                       if (!rangeSelecting) {
                         setModalStart(key)
@@ -572,7 +576,7 @@ export function LeaveClient({
                       setRangeSelecting(false)
                     }}
                   >
-                    <div>{formatInTimeZone(day, BERLIN_TZ, "dd")}</div>
+                    <div className={isToday ? "font-bold text-accent" : ""}>{formatInTimeZone(day, BERLIN_TZ, "dd")}</div>
                     {holidayName ? <div className="mt-1 text-[8px] text-emerald-900 truncate">{holidayName}</div> : null}
                   </button>
                 )
