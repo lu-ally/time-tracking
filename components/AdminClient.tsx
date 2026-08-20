@@ -7,6 +7,12 @@ type User = {
   email: string
   name: string
   role: "user" | "admin"
+}
+
+type WorkingTimeScheduleRow = {
+  id: string
+  userId: string
+  effectiveFrom: string
   targetMinutesMon: number
   targetMinutesTue: number
   targetMinutesWed: number
@@ -40,7 +46,11 @@ export function AdminClient() {
   } | null>(null)
   const [resetPassword, setResetPassword] = useState("")
   const [resetConfirm, setResetConfirm] = useState("")
-  const [targetSaveStates, setTargetSaveStates] = useState<Record<string, SaveState>>({})
+  const [scheduleData, setScheduleData] = useState<
+    Record<string, { current: WorkingTimeScheduleRow | null; upcoming: WorkingTimeScheduleRow[] }>
+  >({})
+  const [scheduleSaveStates, setScheduleSaveStates] = useState<Record<string, SaveState>>({})
+  const [scheduleDeletingId, setScheduleDeletingId] = useState<string | null>(null)
   const [allowanceSaveState, setAllowanceSaveState] = useState<SaveState>("idle")
   const [allowanceForm, setAllowanceForm] = useState({
     userId: "",
@@ -53,7 +63,7 @@ export function AdminClient() {
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const deleteDialogRef = useRef<HTMLDialogElement | null>(null)
   const resetDialogRef = useRef<HTMLDialogElement | null>(null)
-  const targetSaveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const scheduleSaveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const allowanceSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const weekdays = [
     { key: "mon", label: "Mo" },
@@ -74,6 +84,24 @@ export function AdminClient() {
   useEffect(() => {
     void load()
   }, [load])
+
+  const loadSchedule = useCallback(async (userId: string) => {
+    const response = await fetch(`/api/admin/working-time-schedule?userId=${userId}`, {
+      cache: "no-store"
+    })
+    if (!response.ok) return
+    const data = await response.json()
+    setScheduleData((prev) => ({
+      ...prev,
+      [userId]: { current: data.current ?? null, upcoming: data.upcoming ?? [] }
+    }))
+  }, [])
+
+  useEffect(() => {
+    for (const user of users) {
+      void loadSchedule(user.id)
+    }
+  }, [users, loadSchedule])
 
   useEffect(() => {
     if (users.length === 0) return
@@ -111,7 +139,7 @@ export function AdminClient() {
   }, [resetPasswordFor])
 
   useEffect(() => {
-    const targetTimers = targetSaveTimersRef.current
+    const targetTimers = scheduleSaveTimersRef.current
     const allowanceTimer = allowanceSaveTimerRef.current
     return () => {
       for (const timer of Object.values(targetTimers)) {
@@ -288,10 +316,42 @@ export function AdminClient() {
     setResetConfirm(password)
   }
 
-  const updateTargetMinutes = async (event: React.FormEvent<HTMLFormElement>, userId: string) => {
+  const todayDateInputValue = () => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, "0")
+    const day = String(now.getDate()).padStart(2, "0")
+    return `${year}-${month}-${day}`
+  }
+
+  const formatDateDe = (dateKey: string) => {
+    const [year, month, day] = dateKey.split("-")
+    return `${day}.${month}.${year}`
+  }
+
+  const scheduleValue = (
+    schedule: WorkingTimeScheduleRow,
+    key: (typeof weekdays)[number]["key"]
+  ) => {
+    const map = {
+      mon: schedule.targetMinutesMon,
+      tue: schedule.targetMinutesTue,
+      wed: schedule.targetMinutesWed,
+      thu: schedule.targetMinutesThu,
+      fri: schedule.targetMinutesFri,
+      sat: schedule.targetMinutesSat,
+      sun: schedule.targetMinutesSun
+    }
+    return map[key]
+  }
+
+  const updateWorkingTimeSchedule = async (
+    event: React.FormEvent<HTMLFormElement>,
+    userId: string
+  ) => {
     event.preventDefault()
     setError(null)
-    setTargetSaveStates((prev) => ({ ...prev, [userId]: "saving" }))
+    setScheduleSaveStates((prev) => ({ ...prev, [userId]: "saving" }))
     const formData = new FormData(event.currentTarget)
     const toMinutes = (key: string) => {
       const raw = String(formData.get(key) ?? "0").replace(",", ".")
@@ -301,36 +361,52 @@ export function AdminClient() {
     }
     const payload = {
       userId,
+      effectiveFrom: String(formData.get("effectiveFrom") ?? ""),
       targetMinutes: {
-        mon: toMinutes("target-mon"),
-        tue: toMinutes("target-tue"),
-        wed: toMinutes("target-wed"),
-        thu: toMinutes("target-thu"),
-        fri: toMinutes("target-fri"),
-        sat: toMinutes("target-sat"),
-        sun: toMinutes("target-sun")
+        mon: toMinutes("schedule-mon"),
+        tue: toMinutes("schedule-tue"),
+        wed: toMinutes("schedule-wed"),
+        thu: toMinutes("schedule-thu"),
+        fri: toMinutes("schedule-fri"),
+        sat: toMinutes("schedule-sat"),
+        sun: toMinutes("schedule-sun")
       }
     }
-    const response = await fetch("/api/admin/users", {
-      method: "PATCH",
+    const response = await fetch("/api/admin/working-time-schedule", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     })
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
-      setTargetSaveStates((prev) => ({ ...prev, [userId]: "idle" }))
-      setError(data.error ?? "Soll-Arbeitszeit konnte nicht gespeichert werden")
+      setScheduleSaveStates((prev) => ({ ...prev, [userId]: "idle" }))
+      setError(data.error ?? "Sollzeit konnte nicht gespeichert werden")
       return
     }
-    await load()
-    if (targetSaveTimersRef.current[userId]) {
-      clearTimeout(targetSaveTimersRef.current[userId])
+    await loadSchedule(userId)
+    if (scheduleSaveTimersRef.current[userId]) {
+      clearTimeout(scheduleSaveTimersRef.current[userId])
     }
-    setTargetSaveStates((prev) => ({ ...prev, [userId]: "success" }))
-    targetSaveTimersRef.current[userId] = setTimeout(() => {
-      setTargetSaveStates((prev) => ({ ...prev, [userId]: "idle" }))
-      delete targetSaveTimersRef.current[userId]
+    setScheduleSaveStates((prev) => ({ ...prev, [userId]: "success" }))
+    scheduleSaveTimersRef.current[userId] = setTimeout(() => {
+      setScheduleSaveStates((prev) => ({ ...prev, [userId]: "idle" }))
+      delete scheduleSaveTimersRef.current[userId]
     }, 1000)
+  }
+
+  const deleteUpcomingSchedule = async (userId: string, id: string) => {
+    setError(null)
+    setScheduleDeletingId(id)
+    const response = await fetch(`/api/admin/working-time-schedule?id=${id}`, {
+      method: "DELETE"
+    })
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      setError(data.error ?? "Geplante Sollzeit konnte nicht gelöscht werden")
+    } else {
+      await loadSchedule(userId)
+    }
+    setScheduleDeletingId(null)
   }
 
   const minutesToHours = (minutes: number) => (minutes / 60).toFixed(2)
@@ -346,7 +422,8 @@ export function AdminClient() {
           {users.map((user) => (
             <div key={user.id} className="border border-sand rounded-2xl p-4">
               {(() => {
-                const targetSaveState = targetSaveStates[user.id] ?? "idle"
+                const scheduleSaveState = scheduleSaveStates[user.id] ?? "idle"
+                const schedule = scheduleData[user.id]
                 return (
                   <>
               <div className="font-medium">{user.name}</div>
@@ -393,73 +470,128 @@ export function AdminClient() {
                   Entfernen
                 </button>
               </div>
-              <form
-                className="mt-4 grid gap-2"
-                onSubmit={(event) => void updateTargetMinutes(event, user.id)}
-              >
-                <span className="label">Soll-Arbeitszeit pro Tag (Stunden)</span>
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
-                  {weekdays.map((day) => {
-                    const keyMap = {
-                      mon: user.targetMinutesMon,
-                      tue: user.targetMinutesTue,
-                      wed: user.targetMinutesWed,
-                      thu: user.targetMinutesThu,
-                      fri: user.targetMinutesFri,
-                      sat: user.targetMinutesSat,
-                      sun: user.targetMinutesSun
-                    }
-                    return (
-                      <label key={day.key} className="flex flex-col gap-1 text-xs text-[#6b5e51]">
-                        <span>{day.label}</span>
+              <div className="mt-4 grid gap-3">
+                <span className="label">Sollzeit</span>
+                {!schedule ? (
+                  <p className="text-xs text-[#6b5e51]">Lädt...</p>
+                ) : (
+                  <>
+                    {schedule.current ? (
+                      <p className="text-xs text-[#6b5e51]">
+                        Aktuell (ab {formatDateDe(schedule.current.effectiveFrom)}):{" "}
+                        {weekdays
+                          .map(
+                            (day) =>
+                              `${day.label} ${minutesToHours(scheduleValue(schedule.current!, day.key))}h`
+                          )
+                          .join(" · ")}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-ember">Keine Sollzeit hinterlegt</p>
+                    )}
+                    {schedule.upcoming.length > 0 ? (
+                      <ul className="grid gap-1">
+                        {schedule.upcoming.map((upcoming) => (
+                          <li
+                            key={upcoming.id}
+                            className="flex items-center justify-between gap-2 text-xs text-[#6b5e51]"
+                          >
+                            <span>
+                              Ab {formatDateDe(upcoming.effectiveFrom)}:{" "}
+                              {weekdays
+                                .map((day) => `${day.label} ${minutesToHours(scheduleValue(upcoming, day.key))}h`)
+                                .join(" · ")}
+                            </span>
+                            <button
+                              className="btn btn-ghost px-2 py-1 text-[11px] text-ember"
+                              type="button"
+                              disabled={scheduleDeletingId === upcoming.id}
+                              onClick={() => void deleteUpcomingSchedule(user.id, upcoming.id)}
+                            >
+                              Verwerfen
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <form
+                      key={`${user.id}-${schedule.current?.id ?? "none"}`}
+                      className="grid gap-2"
+                      onSubmit={(event) => void updateWorkingTimeSchedule(event, user.id)}
+                    >
+                      <label className="flex flex-col gap-1 text-xs text-[#6b5e51] w-fit">
+                        <span>Gültig ab</span>
                         <input
                           className="input py-2 text-sm"
-                          type="number"
-                          name={`target-${day.key}`}
-                          min={0}
-                          max={24}
-                          step="0.25"
-                          defaultValue={minutesToHours(keyMap[day.key])}
+                          type="date"
+                          name="effectiveFrom"
+                          min={todayDateInputValue()}
+                          defaultValue={todayDateInputValue()}
                           required
                         />
                       </label>
-                    )
-                  })}
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    className={`btn px-3 py-1 text-[11px] ${
-                      targetSaveState === "success" ? "btn-ghost text-accent border-accent" : "btn-ghost"
-                    }`}
-                    type="submit"
-                    disabled={targetSaveState === "saving"}
-                    aria-busy={targetSaveState === "saving"}
-                  >
-                    {targetSaveState === "saving" ? "Speichert..." : null}
-                    {targetSaveState === "success" ? (
-                      <span className="inline-flex items-center gap-1">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                          <path
-                            fillRule="evenodd"
-                            clipRule="evenodd"
-                            d="M9.86338 18.0001C9.58738 18.0001 9.32338 17.8861 9.13438 17.6851L4.27138 12.5061C3.89238 12.1041 3.91338 11.4711 4.31538 11.0931C4.71838 10.7151 5.35138 10.7351 5.72838 11.1371L9.85338 15.5281L18.2614 6.32611C18.6354 5.91711 19.2674 5.89011 19.6754 6.26211C20.0824 6.63411 20.1104 7.26711 19.7384 7.67411L10.6014 17.6741C10.4144 17.8801 10.1484 17.9981 9.87038 18.0001H9.86338Z"
-                            fill="currentColor"
-                          />
-                        </svg>
-                        Gespeichert
-                      </span>
-                    ) : null}
-                    {targetSaveState === "idle" ? "Sollzeit speichern" : null}
-                  </button>
-                  <span className="sr-only" aria-live="polite">
-                    {targetSaveState === "saving"
-                      ? "Speichert"
-                      : targetSaveState === "success"
-                        ? "Gespeichert"
-                        : ""}
-                  </span>
-                </div>
-              </form>
+                      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+                        {weekdays.map((day) => (
+                          <label key={day.key} className="flex flex-col gap-1 text-xs text-[#6b5e51]">
+                            <span>{day.label}</span>
+                            <input
+                              className="input py-2 text-sm"
+                              type="number"
+                              name={`schedule-${day.key}`}
+                              min={0}
+                              max={24}
+                              step="0.25"
+                              defaultValue={
+                                schedule.current
+                                  ? minutesToHours(scheduleValue(schedule.current, day.key))
+                                  : day.key === "sat" || day.key === "sun"
+                                    ? "0"
+                                    : "8"
+                              }
+                              required
+                            />
+                          </label>
+                        ))}
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          className={`btn px-3 py-1 text-[11px] ${
+                            scheduleSaveState === "success"
+                              ? "btn-ghost text-accent border-accent"
+                              : "btn-ghost"
+                          }`}
+                          type="submit"
+                          disabled={scheduleSaveState === "saving"}
+                          aria-busy={scheduleSaveState === "saving"}
+                        >
+                          {scheduleSaveState === "saving" ? "Speichert..." : null}
+                          {scheduleSaveState === "success" ? (
+                            <span className="inline-flex items-center gap-1">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path
+                                  fillRule="evenodd"
+                                  clipRule="evenodd"
+                                  d="M9.86338 18.0001C9.58738 18.0001 9.32338 17.8861 9.13438 17.6851L4.27138 12.5061C3.89238 12.1041 3.91338 11.4711 4.31538 11.0931C4.71838 10.7151 5.35138 10.7351 5.72838 11.1371L9.85338 15.5281L18.2614 6.32611C18.6354 5.91711 19.2674 5.89011 19.6754 6.26211C20.0824 6.63411 20.1104 7.26711 19.7384 7.67411L10.6014 17.6741C10.4144 17.8801 10.1484 17.9981 9.87038 18.0001H9.86338Z"
+                                  fill="currentColor"
+                                />
+                              </svg>
+                              Gespeichert
+                            </span>
+                          ) : null}
+                          {scheduleSaveState === "idle" ? "Sollzeit ab Datum speichern" : null}
+                        </button>
+                        <span className="sr-only" aria-live="polite">
+                          {scheduleSaveState === "saving"
+                            ? "Speichert"
+                            : scheduleSaveState === "success"
+                              ? "Gespeichert"
+                              : ""}
+                        </span>
+                      </div>
+                    </form>
+                  </>
+                )}
+              </div>
                   </>
                 )
               })()}

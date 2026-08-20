@@ -7,19 +7,13 @@ import { prisma } from "../../../../lib/db"
 import { getHolidaysForYear } from "../../../../lib/holidaysRepo"
 import { holidayReduction } from "../../../../lib/holidays"
 import { BERLIN_TZ } from "../../../../lib/time"
+import { targetMinutesForDate, WorkingTimeScheduleRecord } from "../../../../lib/workingTimeSchedule"
 
 type TargetUser = {
   id: string
   name: string
   email: string
   holidayState: string
-  targetMinutesMon: number
-  targetMinutesTue: number
-  targetMinutesWed: number
-  targetMinutesThu: number
-  targetMinutesFri: number
-  targetMinutesSat: number
-  targetMinutesSun: number
 }
 
 function parseMonth(value: string | null) {
@@ -30,19 +24,6 @@ function parseMonth(value: string | null) {
   const month = Number(match[2])
   if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return null
   return { year, month }
-}
-
-function targetForWeekday(user: TargetUser, weekday: number) {
-  const map = [
-    user.targetMinutesSun,
-    user.targetMinutesMon,
-    user.targetMinutesTue,
-    user.targetMinutesWed,
-    user.targetMinutesThu,
-    user.targetMinutesFri,
-    user.targetMinutesSat
-  ]
-  return map[weekday]
 }
 
 function maxDateKey(a: string, b: string) {
@@ -68,7 +49,12 @@ async function getHolidaySet(state: string, year: number) {
   return holidaySet
 }
 
-async function computeTargetBetweenKeys(user: TargetUser, startKey: string, endKey: string) {
+async function computeTargetBetweenKeys(
+  user: TargetUser,
+  schedules: WorkingTimeScheduleRecord[],
+  startKey: string,
+  endKey: string
+) {
   if (startKey > endKey) return 0
   let cursor = fromZonedTime(`${startKey}T12:00:00`, BERLIN_TZ)
   let target = 0
@@ -79,7 +65,7 @@ async function computeTargetBetweenKeys(user: TargetUser, startKey: string, endK
     const holidays = await getHolidaySet(user.holidayState, year)
     const weekday = Number(formatInTimeZone(cursor, BERLIN_TZ, "i")) % 7
     const reduction = holidays.get(dateKey) ?? 0
-    target += targetForWeekday(user, weekday) * (1 - reduction)
+    target += targetMinutesForDate(schedules, dateKey, weekday) * (1 - reduction)
     const nextDayKey = formatInTimeZone(addDays(cursor, 1), BERLIN_TZ, "yyyy-MM-dd")
     cursor = fromZonedTime(`${nextDayKey}T12:00:00`, BERLIN_TZ)
   }
@@ -113,14 +99,7 @@ export async function GET(request: NextRequest) {
         id: true,
         name: true,
         email: true,
-        holidayState: true,
-        targetMinutesMon: true,
-        targetMinutesTue: true,
-        targetMinutesWed: true,
-        targetMinutesThu: true,
-        targetMinutesFri: true,
-        targetMinutesSat: true,
-        targetMinutesSun: true
+        holidayState: true
       }
     })
 
@@ -129,6 +108,16 @@ export async function GET(request: NextRequest) {
     }
 
     const userIds = users.map((user) => user.id)
+    const schedules = await prisma.workingTimeSchedule.findMany({
+      where: { userId: { in: userIds } },
+      orderBy: { effectiveFrom: "asc" }
+    })
+    const schedulesByUser = new Map<string, WorkingTimeScheduleRecord[]>()
+    for (const schedule of schedules) {
+      const list = schedulesByUser.get(schedule.userId) ?? []
+      list.push(schedule)
+      schedulesByUser.set(schedule.userId, list)
+    }
     const firstEntries = await prisma.timeEntry.groupBy({
       by: ["userId"],
       where: { userId: { in: userIds } },
@@ -180,6 +169,7 @@ export async function GET(request: NextRequest) {
 
     const rows = await Promise.all(
       users.map(async (user) => {
+        const userSchedules = schedulesByUser.get(user.id) ?? []
         const effectiveStartDate = firstEntryByUser.get(user.id) ?? null
         const monthRangeStart = effectiveStartDate
           ? maxDateKey(monthStartKey, effectiveStartDate)
@@ -206,11 +196,11 @@ export async function GET(request: NextRequest) {
         }
 
         const monthTarget = hasMonthWindow
-          ? await computeTargetBetweenKeys(user, monthRangeStart!, monthRangeEnd!)
+          ? await computeTargetBetweenKeys(user, userSchedules, monthRangeStart!, monthRangeEnd!)
           : 0
         const totalTarget =
           effectiveStartDate && effectiveStartDate <= todayKey
-            ? await computeTargetBetweenKeys(user, effectiveStartDate, todayKey)
+            ? await computeTargetBetweenKeys(user, userSchedules, effectiveStartDate, todayKey)
             : 0
 
         return {

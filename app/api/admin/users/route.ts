@@ -8,14 +8,7 @@ const userSelect = {
   id: true,
   email: true,
   name: true,
-  role: true,
-  targetMinutesMon: true,
-  targetMinutesTue: true,
-  targetMinutesWed: true,
-  targetMinutesThu: true,
-  targetMinutesFri: true,
-  targetMinutesSat: true,
-  targetMinutesSun: true
+  role: true
 } as const
 
 export const dynamic = "force-dynamic"
@@ -41,7 +34,6 @@ export async function PATCH(request: NextRequest) {
     const userId = String(body.userId ?? "")
     const role = String(body.role ?? "")
     const newPassword = body.newPassword ? String(body.newPassword) : null
-    const targetMinutes = body.targetMinutes ?? null
 
     if (!userId) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 })
@@ -65,37 +57,6 @@ export async function PATCH(request: NextRequest) {
         // Force re-login everywhere after an admin reset.
         await tx.session.deleteMany({
           where: { userId }
-        })
-        return user
-      })
-      return NextResponse.json({ user: updated })
-    }
-
-    if (targetMinutes) {
-      const keys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const
-      for (const key of keys) {
-        const value = Number(targetMinutes[key])
-        if (!Number.isFinite(value) || value < 0 || value > 24 * 60) {
-          return NextResponse.json({ error: "Invalid target minutes" }, { status: 400 })
-        }
-      }
-      const existing = await prisma.user.findUnique({ where: { id: userId } })
-      if (!existing) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 })
-      }
-      const updated = await prisma.$transaction(async (tx) => {
-        const user = await tx.user.update({
-          where: { id: userId },
-          data: {
-            targetMinutesMon: Number(targetMinutes.mon),
-            targetMinutesTue: Number(targetMinutes.tue),
-            targetMinutesWed: Number(targetMinutes.wed),
-            targetMinutesThu: Number(targetMinutes.thu),
-            targetMinutesFri: Number(targetMinutes.fri),
-            targetMinutesSat: Number(targetMinutes.sat),
-            targetMinutesSun: Number(targetMinutes.sun)
-          },
-          select: userSelect
         })
         return user
       })
@@ -157,9 +118,25 @@ export async function POST(request: NextRequest) {
     }
 
     const passwordHash = await hashPassword(password)
-    const user = await prisma.user.create({
-      data: { name, email, passwordHash, role: role as "admin" | "user" },
-      select: userSelect
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: { name, email, passwordHash, role: role as "admin" | "user" },
+        select: userSelect
+      })
+      await tx.workingTimeSchedule.create({
+        data: {
+          userId: created.id,
+          effectiveFrom: "1970-01-01",
+          targetMinutesMon: 480,
+          targetMinutesTue: 480,
+          targetMinutesWed: 480,
+          targetMinutesThu: 480,
+          targetMinutesFri: 480,
+          targetMinutesSat: 0,
+          targetMinutesSun: 0
+        }
+      })
+      return created
     })
 
     return NextResponse.json({ user })
@@ -198,6 +175,7 @@ export async function DELETE(request: NextRequest) {
       await tx.leaveEntry.deleteMany({ where: { userId } })
       await tx.leaveAllowance.deleteMany({ where: { userId } })
       await tx.activityTemplate.deleteMany({ where: { userId } })
+      await tx.workingTimeSchedule.deleteMany({ where: { userId } })
       await tx.user.delete({ where: { id: userId } })
     })
     return NextResponse.json({ ok: true })

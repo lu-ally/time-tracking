@@ -19,13 +19,6 @@ model User {
   name         String
   passwordHash String
   role         UserRole         @default(user)
-  targetMinutesMon Int          @default(480)
-  targetMinutesTue Int          @default(480)
-  targetMinutesWed Int          @default(480)
-  targetMinutesThu Int          @default(480)
-  targetMinutesFri Int          @default(480)
-  targetMinutesSat Int          @default(0)
-  targetMinutesSun Int          @default(0)
   holidayState String           @default("HH")
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
@@ -34,6 +27,27 @@ model User {
   allowances   LeaveAllowance[]
   sessions     Session[]
   templates    ActivityTemplate[]
+  workingTimeSchedules WorkingTimeSchedule[]
+}
+
+model WorkingTimeSchedule {
+  id               String   @id @default(cuid())
+  userId           String
+  effectiveFrom    String
+  targetMinutesMon Int
+  targetMinutesTue Int
+  targetMinutesWed Int
+  targetMinutesThu Int
+  targetMinutesFri Int
+  targetMinutesSat Int
+  targetMinutesSun Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, effectiveFrom])
+  @@index([userId, effectiveFrom])
 }
 
 model TimeEntry {

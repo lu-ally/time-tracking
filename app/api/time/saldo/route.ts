@@ -7,6 +7,7 @@ import { prisma } from "../../../../lib/db"
 import { getHolidaysForYear } from "../../../../lib/holidaysRepo"
 import { holidayReduction } from "../../../../lib/holidays"
 import { BERLIN_TZ } from "../../../../lib/time"
+import { targetMinutesForDate } from "../../../../lib/workingTimeSchedule"
 
 const holidayCache = new Map<string, Map<string, number>>()
 
@@ -50,15 +51,10 @@ export async function GET() {
     const totalActual = entries.reduce((sum, e) => sum + workMinutes(e), 0)
     const hasTodayEntry = entries.some((e) => e.date === todayKey)
 
-    const weekdayMap = [
-      user.targetMinutesSun,
-      user.targetMinutesMon,
-      user.targetMinutesTue,
-      user.targetMinutesWed,
-      user.targetMinutesThu,
-      user.targetMinutesFri,
-      user.targetMinutesSat
-    ]
+    const schedules = await prisma.workingTimeSchedule.findMany({
+      where: { userId: user.id },
+      orderBy: { effectiveFrom: "asc" }
+    })
 
     let totalTarget = 0
     let cursor = fromZonedTime(`${effectiveStartDate}T12:00:00`, BERLIN_TZ)
@@ -70,7 +66,7 @@ export async function GET() {
       const holidays = await getHolidaySet(user.holidayState, year)
       const weekday = Number(formatInTimeZone(cursor, BERLIN_TZ, "i")) % 7
       const reduction = holidays.get(dateKey) ?? 0
-      totalTarget += weekdayMap[weekday] * (1 - reduction)
+      totalTarget += targetMinutesForDate(schedules, dateKey, weekday) * (1 - reduction)
       const nextDayKey = formatInTimeZone(addDays(cursor, 1), BERLIN_TZ, "yyyy-MM-dd")
       cursor = fromZonedTime(`${nextDayKey}T12:00:00`, BERLIN_TZ)
     }

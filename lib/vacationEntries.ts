@@ -4,29 +4,10 @@ import { prisma } from "./db"
 import { getHolidaysForYear } from "./holidaysRepo"
 import { holidayReduction } from "./holidays"
 import { BERLIN_TZ } from "./time"
+import { targetMinutesForDate, WorkingTimeScheduleRecord } from "./workingTimeSchedule"
 
 type UserTarget = {
-  targetMinutesSun: number
-  targetMinutesMon: number
-  targetMinutesTue: number
-  targetMinutesWed: number
-  targetMinutesThu: number
-  targetMinutesFri: number
-  targetMinutesSat: number
   holidayState: string
-}
-
-function weekdayTarget(user: UserTarget, weekday: number): number {
-  const map = [
-    user.targetMinutesSun,
-    user.targetMinutesMon,
-    user.targetMinutesTue,
-    user.targetMinutesWed,
-    user.targetMinutesThu,
-    user.targetMinutesFri,
-    user.targetMinutesSat
-  ]
-  return map[weekday]
 }
 
 export async function createVacationTimeEntries(
@@ -35,7 +16,8 @@ export async function createVacationTimeEntries(
   endDate: string,
   halfDayStart: boolean,
   halfDayEnd: boolean,
-  user: UserTarget
+  user: UserTarget,
+  schedules: WorkingTimeScheduleRecord[]
 ) {
   const yearsNeeded = new Set<number>()
   let cursor = fromZonedTime(`${startDate}T12:00:00`, BERLIN_TZ)
@@ -72,7 +54,7 @@ export async function createVacationTimeEntries(
     const isFullHoliday = holidayRed >= 1.0
 
     if (!isWeekend && !isFullHoliday) {
-      let targetMinutes = Math.round(weekdayTarget(user, weekday) * (1 - holidayRed))
+      let targetMinutes = Math.round(targetMinutesForDate(schedules, dateStr, weekday) * (1 - holidayRed))
       if (dateStr === startDate && halfDayStart) targetMinutes = Math.round(targetMinutes / 2)
       if (dateStr === endDate && halfDayEnd) targetMinutes = Math.round(targetMinutes / 2)
 

@@ -70,7 +70,11 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    await createVacationTimeEntries(user.id, startDate, endDate, halfDayStart, halfDayEnd, user)
+    const schedules = await prisma.workingTimeSchedule.findMany({
+      where: { userId: user.id },
+      orderBy: { effectiveFrom: "asc" }
+    })
+    await createVacationTimeEntries(user.id, startDate, endDate, halfDayStart, halfDayEnd, user, schedules)
 
     return NextResponse.json({ entry })
   } catch (error) {
@@ -108,7 +112,11 @@ export async function PATCH(request: NextRequest) {
       data: { startDate, endDate, halfDayStart, halfDayEnd }
     })
 
-    await createVacationTimeEntries(user.id, startDate, endDate, halfDayStart, halfDayEnd, user)
+    const schedules = await prisma.workingTimeSchedule.findMany({
+      where: { userId: user.id },
+      orderBy: { effectiveFrom: "asc" }
+    })
+    await createVacationTimeEntries(user.id, startDate, endDate, halfDayStart, halfDayEnd, user, schedules)
 
     return NextResponse.json({ entry })
   } catch (error) {

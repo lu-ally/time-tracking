@@ -28,12 +28,25 @@ async function main() {
     const existing = await prisma.user.findUnique({ where: { email: adminEmail } })
     if (!existing) {
       const passwordHash = await hashPassword(adminPassword)
-      await prisma.user.create({
+      const admin = await prisma.user.create({
         data: {
           email: adminEmail,
           name: "Admin",
           passwordHash,
           role: "admin"
+        }
+      })
+      await prisma.workingTimeSchedule.create({
+        data: {
+          userId: admin.id,
+          effectiveFrom: "1970-01-01",
+          targetMinutesMon: 480,
+          targetMinutesTue: 480,
+          targetMinutesWed: 480,
+          targetMinutesThu: 480,
+          targetMinutesFri: 480,
+          targetMinutesSat: 0,
+          targetMinutesSun: 0
         }
       })
     }

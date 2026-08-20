@@ -16,6 +16,7 @@ import { formatInTimeZone, fromZonedTime } from "date-fns-tz"
 import { BERLIN_TZ, minutesToTime, weekDates } from "../lib/time"
 import { Holiday, holidayReduction } from "../lib/holidays"
 import { workMinutes } from "../lib/calculations"
+import { targetMinutesForDate, WorkingTimeScheduleRecord } from "../lib/workingTimeSchedule"
 
 export type TimeEntry = {
   id: string
@@ -38,25 +39,17 @@ type SaveState = "idle" | "saving" | "success"
 
 export function TimeEntryClient({
   initialDate,
-  targetMinutes,
+  schedules,
   holidays
 }: {
   initialDate: string
-  targetMinutes: {
-    mon: number
-    tue: number
-    wed: number
-    thu: number
-    fri: number
-    sat: number
-    sun: number
-  }
+  schedules: WorkingTimeScheduleRecord[]
   holidays: Holiday[]
 }) {
-  const targetForWeekday = useCallback((weekday: number) => {
-    const map = [targetMinutes.sun, targetMinutes.mon, targetMinutes.tue, targetMinutes.wed, targetMinutes.thu, targetMinutes.fri, targetMinutes.sat]
-    return map[weekday]
-  }, [targetMinutes])
+  const targetForDate = useCallback(
+    (dateKey: string, weekday: number) => targetMinutesForDate(schedules, dateKey, weekday),
+    [schedules]
+  )
 
   const [view, setView] = useState<"day" | "week" | "month">("week")
   const [date, setDate] = useState(initialDate)
@@ -331,10 +324,10 @@ export function TimeEntryClient({
       const dayDate = fromZonedTime(`${day}T00:00:00`, BERLIN_TZ)
       const holiday = holidayMap.get(day)
       const reduction = holiday ? holidayReduction(day, [holiday]) : 0
-      const target = targetForWeekday(dayDate.getDay()) * (1 - reduction)
+      const target = targetForDate(day, dayDate.getDay()) * (1 - reduction)
       return sum + (total - target)
     }, 0)
-  }, [saldoDays, entryMap, holidayMap, targetForWeekday])
+  }, [saldoDays, entryMap, holidayMap, targetForDate])
 
   return (
     <div className="space-y-6">
@@ -439,7 +432,7 @@ export function TimeEntryClient({
             : `${day}-empty`
           const total = entry ? workMinutes(entry) : 0
           const dayDate = fromZonedTime(`${day}T00:00:00`, BERLIN_TZ)
-          const weekdayTargetMinutes = targetForWeekday(dayDate.getDay())
+          const weekdayTargetMinutes = targetForDate(day, dayDate.getDay())
           const defaultStartMinutes = 9 * 60
           const defaultBreakMinutes = weekdayTargetMinutes <= 240 ? 0 : 30
           const defaultEndMinutes = Math.min(
@@ -448,7 +441,7 @@ export function TimeEntryClient({
           )
           const holiday = holidayMap.get(day)
           const reduction = holiday ? holidayReduction(day, [holiday]) : 0
-          const target = targetForWeekday(dayDate.getDay()) * (1 - reduction)
+          const target = targetForDate(day, dayDate.getDay()) * (1 - reduction)
           const vacationHalfDay = vacationDayMap.get(day)
           const isVacation = vacationHalfDay !== undefined
           const diff = total - target
