@@ -91,3 +91,30 @@ export async function deleteVacationTimeEntries(
     where: { userId, date: { gte: startDate, lte: endDate }, vacationEntry: true }
   })
 }
+
+export async function regenerateVacationTimeEntriesFrom(userId: string, fromDate: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { holidayState: true } })
+  if (!user) return
+
+  const leaves = await prisma.leaveEntry.findMany({ where: { userId, endDate: { gte: fromDate } } })
+  if (leaves.length === 0) return
+
+  const schedules = await prisma.workingTimeSchedule.findMany({
+    where: { userId },
+    orderBy: { effectiveFrom: "asc" }
+  })
+
+  for (const leave of leaves) {
+    const start = leave.startDate < fromDate ? fromDate : leave.startDate
+    await deleteVacationTimeEntries(userId, start, leave.endDate)
+    await createVacationTimeEntries(
+      userId,
+      start,
+      leave.endDate,
+      start === leave.startDate && leave.halfDayStart,
+      leave.halfDayEnd,
+      user,
+      schedules
+    )
+  }
+}

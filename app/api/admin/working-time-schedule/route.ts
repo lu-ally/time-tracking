@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { apiError, requireAdmin } from "../../../../lib/auth"
 import { prisma } from "../../../../lib/db"
 import { berlinDateString } from "../../../../lib/time"
+import { regenerateVacationTimeEntriesFrom } from "../../../../lib/vacationEntries"
 import { resolveScheduleForDate } from "../../../../lib/workingTimeSchedule"
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -87,6 +88,8 @@ export async function POST(request: NextRequest) {
       create: { userId, effectiveFrom, ...data }
     })
 
+    await regenerateVacationTimeEntriesFrom(userId, effectiveFrom)
+
     return NextResponse.json({ schedule })
   } catch (error) {
     return apiError(error)
@@ -116,6 +119,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await prisma.workingTimeSchedule.delete({ where: { id } })
+    await regenerateVacationTimeEntriesFrom(existing.userId, existing.effectiveFrom)
     return NextResponse.json({ ok: true })
   } catch (error) {
     return apiError(error)
