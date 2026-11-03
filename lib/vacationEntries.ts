@@ -8,6 +8,8 @@ import { targetMinutesForDate, WorkingTimeScheduleRecord } from "./workingTimeSc
 
 type UserTarget = {
   holidayState: string
+  defaultStartMinutes: number
+  defaultBreakMinutes: number
 }
 
 export async function createVacationTimeEntries(
@@ -59,8 +61,8 @@ export async function createVacationTimeEntries(
       if (dateStr === endDate && halfDayEnd) targetMinutes = Math.round(targetMinutes / 2)
 
       if (targetMinutes > 0) {
-        const breakMinutes = targetMinutes > 240 ? 30 : 0
-        const startMinutes = 9 * 60
+        const breakMinutes = targetMinutes > 240 ? user.defaultBreakMinutes : 0
+        const startMinutes = user.defaultStartMinutes
         const endMinutes = startMinutes + targetMinutes + breakMinutes
         entriesToCreate.push({
           userId,
@@ -93,7 +95,7 @@ export async function deleteVacationTimeEntries(
 }
 
 export async function regenerateVacationTimeEntriesFrom(userId: string, fromDate: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { holidayState: true } })
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { holidayState: true, defaultStartMinutes: true, defaultBreakMinutes: true } })
   if (!user) return
 
   const leaves = await prisma.leaveEntry.findMany({ where: { userId, endDate: { gte: fromDate } } })

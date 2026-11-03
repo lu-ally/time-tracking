@@ -31,6 +31,8 @@ export default async function TimePage({
       <TimeEntryClient
         initialDate={date}
         schedules={schedules}
+        defaultStartMinutes={user.defaultStartMinutes}
+        defaultBreakMinutes={user.defaultBreakMinutes}
         holidays={holidays}
       />
     </AppShell>

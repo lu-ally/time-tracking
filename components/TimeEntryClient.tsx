@@ -16,6 +16,7 @@ import { formatInTimeZone, fromZonedTime } from "date-fns-tz"
 import { BERLIN_TZ, minutesToTime, weekDates } from "../lib/time"
 import { Holiday, holidayReduction } from "../lib/holidays"
 import { workMinutes } from "../lib/calculations"
+import { DefaultTimesPopover } from "./DefaultTimesPopover"
 import { targetMinutesForDate, WorkingTimeScheduleRecord } from "../lib/workingTimeSchedule"
 
 export type TimeEntry = {
@@ -40,10 +41,14 @@ type SaveState = "idle" | "saving" | "success"
 export function TimeEntryClient({
   initialDate,
   schedules,
-  holidays
+  holidays,
+  defaultStartMinutes: initialStartMinutes,
+  defaultBreakMinutes: initialBreakMinutes
 }: {
   initialDate: string
   schedules: WorkingTimeScheduleRecord[]
+  defaultStartMinutes: number
+  defaultBreakMinutes: number
   holidays: Holiday[]
 }) {
   const targetForDate = useCallback(
@@ -51,6 +56,8 @@ export function TimeEntryClient({
     [schedules]
   )
 
+  const [defaultStartMinutes, setDefaultStartMinutes] = useState(initialStartMinutes)
+  const [defaultBreakMinutes, setDefaultBreakMinutes] = useState(initialBreakMinutes)
   const [view, setView] = useState<"day" | "week" | "month">("week")
   const [date, setDate] = useState(initialDate)
   const [entries, setEntries] = useState<TimeEntry[]>([])
@@ -420,6 +427,14 @@ export function TimeEntryClient({
           <button className="btn btn-ghost px-3 py-1 text-xs" type="button" onClick={fillWeek}>
             Woche automatisch auffüllen
           </button>
+          <DefaultTimesPopover
+            startMinutes={defaultStartMinutes}
+            breakMinutes={defaultBreakMinutes}
+            onSaved={(start, breakMin) => {
+              setDefaultStartMinutes(start)
+              setDefaultBreakMinutes(breakMin)
+            }}
+          />
         </div>
       </div>
 
@@ -429,14 +444,13 @@ export function TimeEntryClient({
           const entry = entryMap.get(day)
           const entryFormKey = entry
             ? `${day}-${entry.id}-${entry.startMinutes}-${entry.endMinutes}-${entry.breakMinutes}-${entry.note}`
-            : `${day}-empty`
+            : `${day}-empty-${defaultStartMinutes}-${defaultBreakMinutes}`
           const total = entry ? workMinutes(entry) : 0
           const dayDate = fromZonedTime(`${day}T00:00:00`, BERLIN_TZ)
           const weekdayTargetMinutes = targetForDate(day, dayDate.getDay())
-          const defaultStartMinutes = 9 * 60
-          const defaultBreakMinutes = weekdayTargetMinutes <= 240 ? 0 : 30
+          const dayBreakMinutes = weekdayTargetMinutes <= 240 ? 0 : defaultBreakMinutes
           const defaultEndMinutes = Math.min(
-            defaultStartMinutes + Math.max(weekdayTargetMinutes, 0) + defaultBreakMinutes,
+            defaultStartMinutes + Math.max(weekdayTargetMinutes, 0) + dayBreakMinutes,
             23 * 60 + 59
           )
           const holiday = holidayMap.get(day)
@@ -527,7 +541,7 @@ export function TimeEntryClient({
                       name="breakMinutes"
                       type="number"
                       min={0}
-                      defaultValue={entry ? entry.breakMinutes : defaultBreakMinutes}
+                      defaultValue={entry ? entry.breakMinutes : dayBreakMinutes}
                     />
                   </label>
                 </div>

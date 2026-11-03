@@ -20,6 +20,8 @@ model User {
   passwordHash String
   role         UserRole         @default(user)
   holidayState String           @default("HH")
+  defaultStartMinutes Int       @default(540)
+  defaultBreakMinutes Int       @default(30)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
   timeEntries  TimeEntry[]

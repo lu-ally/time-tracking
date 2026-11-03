@@ -24,3 +24,8 @@ export const leaveEntrySchema = z.object({
   halfDayStart: z.boolean().optional().default(false),
   halfDayEnd: z.boolean().optional().default(false)
 })
+
+export const userSettingsSchema = z.object({
+  defaultStartMinutes: z.number().int().min(0).max(23 * 60 + 59),
+  defaultBreakMinutes: z.number().int().min(0).max(240)
+})

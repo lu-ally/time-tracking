@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "defaultStartMinutes" INTEGER NOT NULL DEFAULT 540,
+ADD COLUMN "defaultBreakMinutes" INTEGER NOT NULL DEFAULT 30;
